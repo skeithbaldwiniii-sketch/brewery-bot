@@ -1,4 +1,12 @@
 @echo off
-cd /d "C:\Users\skb3i\OneDrive\Desktop\brewery_bot"
-call ".venv\Scripts\activate.bat"
-python eod_main.py
+cd /d "%~dp0"
+
+if not exist ".venv\Scripts\python.exe" (
+    echo Virtual environment not found.
+    echo Please create the environment and install requirements.txt first.
+    pause
+    exit /b 1
+)
+
+.venv\Scripts\python.exe eod_main.py
+pause
