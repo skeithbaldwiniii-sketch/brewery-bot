@@ -1,5 +1,8 @@
 from knowledge.database import get_connection
-
+from intelligence.beer30_queries import (
+    is_wip_question,
+    answer_wip_question,
+)
 
 STYLE_FAMILIES = {
     "ipa": "IPA",
@@ -328,6 +331,14 @@ def answer_question(question):
 
     if task_answer:
         print(task_answer)
+        return
+
+    # ---------------------------------------------------------
+    # BEER30 WIP QUESTIONS
+    # ---------------------------------------------------------
+
+    if is_wip_question(question):
+        print(answer_wip_question(question))
         return
 
     cleaned = clean_question(question)

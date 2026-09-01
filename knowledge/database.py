@@ -128,6 +128,58 @@ def initialize_database():
         )
     """)
 
+        # ---------------------------------------------------------
+    # BEER30 INVENTORY SNAPSHOTS
+    # ---------------------------------------------------------
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS beer30_inventory (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            beer30_item_id TEXT NOT NULL,
+            item_type TEXT NOT NULL,
+            item_name TEXT NOT NULL,
+            brewery_id TEXT,
+            measurement_unit TEXT,
+            quantity_per_unit REAL,
+            quantity_in_stock REAL,
+            archived INTEGER,
+            beer30_timestamp TEXT,
+            retrieved_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
+        # ---------------------------------------------------------
+    # BEER30 SYNC RUNS
+    # ---------------------------------------------------------
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS beer30_sync_runs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            data_type TEXT NOT NULL,
+            started_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            completed_at TEXT,
+            records_saved INTEGER DEFAULT 0,
+            status TEXT NOT NULL,
+            error_message TEXT
+        )
+    """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS beer30_wip (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            report_date TEXT NOT NULL,
+            tank_name TEXT NOT NULL,
+            brand_name TEXT,
+            batch_number TEXT,
+            current_volume REAL,
+            action TEXT,
+            wip_type TEXT,
+            total_cost REAL,
+            item_id TEXT,
+            retrieved_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
     connection.commit()
     connection.close()
 

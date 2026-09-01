@@ -20,3 +20,6 @@ Thumbs.db
 
 # IDE
 .vscode/
+
+data/*.db
+data/beer30_api_catalog.json

@@ -9,6 +9,14 @@ from slack_bolt.adapter.socket_mode import SocketModeHandler
 
 from knowledge.ask import answer_question
 from intelligence.task_queries import answer_task_question
+from intelligence.beer30_queries import (
+    is_wip_question,
+    answer_wip_question,
+)
+from intelligence.springsteen import (
+    is_springsteen_request,
+    play_springsteen,
+)
 from reports.schedule import format_schedule
 
 
@@ -214,6 +222,22 @@ def handle_mention(event, say):
 
     if schedule_answer:
         say(schedule_answer)
+        return
+
+    # ---------------------------------------------
+    # BEER30 WIP
+    # ---------------------------------------------
+
+    if is_wip_question(question):
+        say(answer_wip_question(question))
+        return
+
+    # ---------------------------------------------
+    # SPRINGSTEEN
+    # ---------------------------------------------
+
+    if is_springsteen_request(question):
+        say(play_springsteen())
         return
 
     # ---------------------------------------------
