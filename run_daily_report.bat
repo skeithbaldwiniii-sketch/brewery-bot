@@ -1,4 +1,4 @@
 @echo off
-cd /d "C:\Users\skb3i\OneDrive\Desktop\brewery_bot"
+cd /d "%~dp0"
 call ".venv\Scripts\activate.bat"
 python main.py
