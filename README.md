@@ -27,7 +27,7 @@ Users can ask questions such as:
 - "What's left today?"
 - "When are we kegging Festbier?"
 - "What day are deliveries?"
-- "When is the Max's Taphouse event?"
+- "When is the event?"
 
 The system identifies the relevant schedule or task information and returns the
 appropriate answer.
