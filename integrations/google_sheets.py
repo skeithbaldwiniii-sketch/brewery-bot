@@ -25,7 +25,7 @@ def connect_to_sheet():
     """Connect to the brewery operations worksheet."""
 
     scopes = [
-        "https://www.googleapis.com/auth/spreadsheets.readonly",
+        "https://www.googleapis.com/auth/spreadsheets",
         "https://www.googleapis.com/auth/drive.readonly",
     ]
 
@@ -74,7 +74,7 @@ def get_schedule_for_day(day_name):
         raise ValueError(f"Invalid day name: {day_name}")
 
     scopes = [
-        "https://www.googleapis.com/auth/spreadsheets.readonly",
+        "https://www.googleapis.com/auth/spreadsheets",
         "https://www.googleapis.com/auth/drive.readonly",
     ]
 

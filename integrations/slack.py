@@ -17,6 +17,13 @@ from intelligence.springsteen import (
     is_springsteen_request,
     play_springsteen,
 )
+from intelligence.email_queries import (
+    is_email_question,
+    answer_email_question,
+)
+from intelligence.schedule_commands import (
+    handle_schedule_write_question,
+)
 from reports.schedule import format_schedule
 
 
@@ -232,12 +239,25 @@ def handle_mention(event, say):
         say(answer_wip_question(question))
         return
 
+    if is_email_question(question):
+        say(answer_email_question(question))
+        return
+
     # ---------------------------------------------
     # SPRINGSTEEN
     # ---------------------------------------------
 
     if is_springsteen_request(question):
         say(play_springsteen())
+        return
+
+    schedule_write_response = handle_schedule_write_question(
+        event.get("user"),
+        question,
+    )
+
+    if schedule_write_response is not None:
+        say(schedule_write_response)
         return
 
     # ---------------------------------------------
