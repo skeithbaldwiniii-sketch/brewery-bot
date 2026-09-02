@@ -15,6 +15,7 @@ from intelligence.beer30_queries import (
 )
 from intelligence.springsteen import (
     is_springsteen_request,
+    get_springsteen_mood,
     play_springsteen,
 )
 from intelligence.email_queries import (
@@ -248,7 +249,8 @@ def handle_mention(event, say):
     # ---------------------------------------------
 
     if is_springsteen_request(question):
-        say(play_springsteen())
+        mood = get_springsteen_mood(question)
+        say(play_springsteen(mood))
         return
 
     schedule_write_response = handle_schedule_write_question(

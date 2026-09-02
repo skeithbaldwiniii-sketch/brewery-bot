@@ -1,26 +1,24 @@
-from integrations.google_sheets import get_column_a
-from reports.daily_tasks import get_tasks_for_day
-from reports.daily_report import build_daily_report
-from integrations.slack import send_message
+from integrations.slack import app, SLACK_APP_TOKEN
+from slack_bolt.adapter.socket_mode import SocketModeHandler
 
 
 def main():
-    # Get today's tasks from Google Sheets.
-    column_a = get_column_a()
-    tasks = get_tasks_for_day(column_a)
+    if not SLACK_APP_TOKEN:
+        raise RuntimeError(
+            "SLACK_APP_TOKEN was not found in the .env file."
+        )
 
-    # Build the daily report.
-    report = build_daily_report(tasks)
+    print("Brews Springsteen is starting...")
+    print("Socket Mode enabled.")
+    print("Listening for Slack mentions...")
+    print("Bolt app is running!")
 
-    # Display the report locally.
-    print()
-    print(report)
-    print()
+    handler = SocketModeHandler(
+        app,
+        SLACK_APP_TOKEN,
+    )
 
-    # Send the report to Slack.
-    send_message(report)
-
-    print("Daily report sent to Slack!")
+    handler.start()
 
 
 if __name__ == "__main__":
