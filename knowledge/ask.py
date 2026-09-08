@@ -1,4 +1,27 @@
+import unicodedata
+
 from knowledge.database import get_connection
+from knowledge.beer_queries import (
+    answer_beer_question,
+)
+from knowledge.hop_intelligence import (
+    extract_hop_name,
+    format_hop_profile,
+)
+
+from knowledge.hop_comparison import (
+    extract_two_hop_names,
+    format_hop_comparison,
+)
+
+from knowledge.hop_recommendations import (
+    recommend_hops,
+    format_hop_recommendations,
+)
+from knowledge.hop_substitutions import (
+    format_hop_substitutions,
+)
+
 from intelligence.beer30_queries import (
     is_wip_question,
     answer_wip_question,
@@ -13,9 +36,37 @@ STYLE_FAMILIES = {
     "sour": "Sour",
 }
 
+STYLE_FAMILIES = {
+    "ipa": "IPA",
+    "lager": "Lager",
+    "ale": "Ale",
+    "stout": "Stout",
+    "porter": "Porter",
+    "sour": "Sour",
+}
+
+last_style_list = {}
+
+def normalize_style_name(name):
+    """Normalize a beer style name for matching."""
+
+    name = unicodedata.normalize("NFKD", name)
+    name = "".join(
+        character
+        for character in name
+        if not unicodedata.combining(character)
+    )
+
+    name = name.lower().strip()
+
+    if name.startswith("historical beer:"):
+        name = name[len("historical beer:"):].strip()
+
+    return name
+
 
 def search_exact_style(question):
-    """Look for an exact beer style name."""
+    """Look for an exact beer style name using normalized names."""
 
     connection = get_connection()
 
@@ -23,14 +74,23 @@ def search_exact_style(question):
         """
         SELECT *
         FROM beer_styles
-        WHERE LOWER(name) = LOWER(?)
-        """,
-        (question.strip(),),
+        ORDER BY name
+        """
     ).fetchall()
 
     connection.close()
 
-    return rows
+    normalized_question = normalize_style_name(question)
+
+    matches = []
+
+    for row in rows:
+        normalized_name = normalize_style_name(row["name"])
+
+        if normalized_name == normalized_question:
+            matches.append(row)
+
+    return matches
 
 
 def search_style_family(family):
@@ -94,6 +154,10 @@ def clean_question(question):
         "what is the history of ",
         "what's the history of ",
         "history of ",
+        "give me the full description of ",
+        "give me the full details of ",
+        "give me the complete description of ",
+        "give me the complete details of ",
     ]
 
     for prefix in prefixes:
@@ -117,7 +181,28 @@ def clean_question(question):
 
     return question.strip()
 
-def display_style(style):
+def display_style(style, question=None):
+    question_lower = (question or "").lower()
+
+    full_detail_phrases = [
+        "full description",
+        "full details",
+        "full detail",
+        "complete description",
+        "complete details",
+        "complete detail",
+        "detailed description",
+        "detailed details",
+        "all the details",
+        "everything about",
+        "full bjcp",
+        "bjcp description",
+    ]
+
+    full_detail = any(
+        phrase in question_lower
+        for phrase in full_detail_phrases
+    )
     """Display a beer style record."""
 
     print("Brews Springsteen:")
@@ -125,28 +210,30 @@ def display_style(style):
 
     print(f"Style: {style['name']}")
     print(f"Category: {style['category']}")
-    print(f"Origin: {style['country_of_origin']}")
+    origin = style["country_of_origin"] or "Not specified"
+    print(f"Origin: {origin}")
 
-    if style["history"]:
-        print(f"\nHistory: {style['history']}")
+    if full_detail:
+        if style["history"]:
+            print(f"\nHistory: {style['history']}")
 
-    if style["description"]:
-        print(f"\nDescription: {style['description']}")
+        if style["description"]:
+            print(f"\nDescription: {style['description']}")
 
-    if style["aroma"]:
-        print(f"\nAroma: {style['aroma']}")
+        if style["aroma"]:
+            print(f"Aroma: {style['aroma']}")
 
-    if style["appearance"]:
-        print(f"Appearance: {style['appearance']}")
+        if style["appearance"]:
+            print(f"Appearance: {style['appearance']}")
 
-    if style["flavor"]:
-        print(f"Flavor: {style['flavor']}")
+        if style["flavor"]:
+            print(f"Flavor: {style['flavor']}")
 
-    if style["mouthfeel"]:
-        print(f"Mouthfeel: {style['mouthfeel']}")
+        if style["mouthfeel"]:
+            print(f"Mouthfeel: {style['mouthfeel']}")
 
-    if style["ingredients"]:
-        print(f"\nIngredients: {style['ingredients']}")
+        if style["ingredients"]:
+            print(f"\nIngredients: {style['ingredients']}")
 
     if style["typical_abv_min"] is not None:
         print(
@@ -183,6 +270,8 @@ def display_style(style):
             f"{style['typical_srm_max']:.0f}"
         )
 
+    if not full_detail and style["description"]:
+        print(f"\n{style['description']}")
     print(f"\nSource: {style['source']}")
     print("-" * 50)
 
@@ -307,6 +396,27 @@ def display_comparison(styles):
 
 def answer_question(question):
     """Determine what the user is asking and return an answer."""
+    global last_style_list
+
+    cleaned = clean_question(question)
+
+    # ---------------------------------------------------------
+    # STYLE NUMBER SELECTION
+    # ---------------------------------------------------------
+
+    if cleaned.isdigit() or cleaned.startswith("#") or cleaned.startswith("number "):
+        selection = cleaned.replace("#", "").replace("number ", "").strip()
+
+        if selection.isdigit():
+            number = int(selection)
+
+            if number in last_style_list:
+                style_name = last_style_list[number]
+                styles = search_exact_style(style_name)
+
+                if styles:
+                    display_style(styles[0], question)
+                    return
 
     # ---------------------------------------------------------
     # TASK / SCHEDULE QUESTIONS
@@ -514,13 +624,98 @@ def answer_question(question):
                 return
 
     # ---------------------------------------------------------
-    # 2. EXACT STYLE
+    # 2. HOP COMPARISON
     # ---------------------------------------------------------
 
+    hop_names = extract_two_hop_names(question)
+
+    if hop_names:
+        hop_comparison = format_hop_comparison(
+            hop_names[0],
+            hop_names[1],
+        )
+
+        if hop_comparison:
+            print("Brews Springsteen:")
+            print("-" * 50)
+            print(hop_comparison)
+            print("-" * 50)
+            return
+
+        # ---------------------------------------------------------
+    # 3. HOP SUBSTITUTIONS
+    # ---------------------------------------------------------
+
+    hop_name = extract_hop_name(question)
+
+    if hop_name and any(
+        phrase in question.lower()
+        for phrase in [
+            "substitute for",
+            "substitution for",
+            "substitutions for",
+            "use instead of",
+            "instead of",
+            "replace",
+            "replacement for",
+        ]
+    ):
+        formatted_substitutions = format_hop_substitutions(
+            hop_name,
+        )
+
+        if formatted_substitutions:
+            print("Brews Springsteen:")
+            print("-" * 50)
+            print(formatted_substitutions)
+            print("-" * 50)
+            return
+
+    # 3. HOP RECOMMENDATIONS
+    hop_name = extract_hop_name(question)
+
+    if hop_name and any(
+        phrase in question.lower()
+        for phrase in [
+            "similar hops",
+            "similar to",
+            "hops like",
+            "recommend hops",
+            "recommend a hop",
+            "what hops",
+            "alternative to",
+            "alternatives to",
+        ]
+    ):
+        formatted_recommendations = format_hop_recommendations(
+            hop_name,
+        )
+
+        if formatted_recommendations:
+            print("Brews Springsteen:")
+            print("-" * 50)
+            print(formatted_recommendations)
+            print("-" * 50)
+            return
+    hop_name = extract_hop_name(question)
+
+    if hop_name:
+        hop_profile = format_hop_profile(hop_name)
+
+        if hop_profile:
+            print("Brews Springsteen:")
+            print("-" * 50)
+            print(hop_profile)
+            print("-" * 50)
+            return
+
+    # ---------------------------------------------------------
+    # 3. EXACT STYLE
+    # ---------------------------------------------------------
     styles = search_exact_style(cleaned)
 
     if styles:
-        display_style(styles[0])
+        display_style(styles[0], question)
         return
 
     # ---------------------------------------------------------
@@ -532,16 +727,22 @@ def answer_question(question):
         styles = search_style_family(family)
 
         if styles:
+
+            last_style_list = {}
+
             print("Brews Springsteen:")
             print("-" * 50)
             print(f"{family} styles currently in the encyclopedia:\n")
 
-            for style in styles:
+            for number, style in enumerate(styles, start=1):
+                last_style_list[number] = style["name"]
+
                 print(
-                    f"• {style['name']}"
+                    f"{number}. {style['name']}"
                     f" ({style['category']})"
                 )
 
+            print("\nReply with a number to see the description.")
             print("-" * 50)
             return
 

@@ -58,6 +58,38 @@ def initialize_database():
         )
     """)
 
+        # ---------------------------------------------------------
+    # HOP VARIETIES
+    # ---------------------------------------------------------
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS hop_varieties (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL UNIQUE,
+            origin_country TEXT,
+            origin_region TEXT,
+            developer TEXT,
+            released_year INTEGER,
+            hop_type TEXT,
+            alpha_acid_min REAL,
+            alpha_acid_max REAL,
+            beta_acid_min REAL,
+            beta_acid_max REAL,
+            cohumulone_min REAL,
+            cohumulone_max REAL,
+            oil_total_min REAL,
+            oil_total_max REAL,
+            aroma_description TEXT,
+            flavor_description TEXT,
+            common_descriptors TEXT,
+            common_uses TEXT,
+            brewing_notes TEXT,
+            source TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
     # ---------------------------------------------------------
     # GENERAL ENCYCLOPEDIA
     # ---------------------------------------------------------
@@ -83,8 +115,13 @@ def initialize_database():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL UNIQUE,
             style TEXT,
-            description TEXT,
-            notes TEXT
+            abv REAL,
+            malt TEXT,
+            hops TEXT,
+            yeast TEXT,
+            adjuncts TEXT,
+            tasting_notes TEXT,
+            recommend_if TEXT
         )
     """)
 
