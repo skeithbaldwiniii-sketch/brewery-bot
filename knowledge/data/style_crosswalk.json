@@ -1,0 +1,164 @@
+[
+  {
+    "bjcp_name": "Weissbier",
+    "ba_name": "South German-Style Hefeweizen",
+    "relationship": "equivalent_to",
+    "confidence": "high"
+  },
+  {
+    "bjcp_name": "Helles Bock",
+    "ba_name": "German-Style Heller Bock/Maibock",
+    "relationship": "equivalent_to",
+    "confidence": "high"
+  },
+  {
+    "bjcp_name": "Foreign Extra Stout",
+    "ba_name": "Export-Style Stout",
+    "relationship": "equivalent_to",
+    "confidence": "high"
+  },
+  {
+    "bjcp_name": "American IPA",
+    "ba_name": "American-Style India Pale Ale",
+    "relationship": "equivalent_to",
+    "confidence": "high"
+  },
+  {
+    "bjcp_name": "California Common",
+    "ba_name": "California Common Beer",
+    "relationship": "equivalent_to",
+    "confidence": "high"
+  },
+  {
+    "bjcp_name": "Baltic Porter",
+    "ba_name": "Baltic-Style Porter",
+    "relationship": "equivalent_to",
+    "confidence": "high"
+  },
+  {
+    "bjcp_name": "Munich Dunkel",
+    "ba_name": "Munich-Style Dunkel",
+    "relationship": "equivalent_to",
+    "confidence": "high"
+  },
+  {
+    "bjcp_name": "Munich Helles",
+    "ba_name": "Munich-Style Helles",
+    "relationship": "equivalent_to",
+    "confidence": "high"
+  },
+  {
+    "bjcp_name": "Vienna Lager",
+    "ba_name": "Vienna-Style Lager",
+    "relationship": "equivalent_to",
+    "confidence": "high"
+  },
+  {
+    "bjcp_name": "Doppelbock",
+    "ba_name": "German-Style Doppelbock",
+    "relationship": "equivalent_to",
+    "confidence": "high"
+  },
+  {
+    "bjcp_name": "Festbier",
+    "ba_name": "German-Style Oktoberfest/Festbier",
+    "relationship": "equivalent_to",
+    "confidence": "high"
+  },
+  {
+    "bjcp_name": "Eisbock",
+    "ba_name": "German-Style Eisbock",
+    "relationship": "equivalent_to",
+    "confidence": "high"
+  },
+  {
+    "bjcp_name": "Irish Red Ale",
+    "ba_name": "Irish-Style Red Ale",
+    "relationship": "equivalent_to",
+    "confidence": "high"
+  },
+  {
+    "bjcp_name": "English Barley Wine",
+    "ba_name": "British-Style Barley Wine Ale",
+    "relationship": "equivalent_to",
+    "confidence": "high"
+  },
+  {
+    "bjcp_name": "Scottish Light",
+    "ba_name": "Scottish-Style Light Ale",
+    "relationship": "equivalent_to",
+    "confidence": "high"
+  },
+  {
+    "bjcp_name": "Scottish Heavy",
+    "ba_name": "Scottish-Style Heavy Ale",
+    "relationship": "equivalent_to",
+    "confidence": "high"
+  },
+  {
+    "bjcp_name": "Scottish Export",
+    "ba_name": "Scottish-Style Export Ale",
+    "relationship": "equivalent_to",
+    "confidence": "high"
+  },
+  {
+    "bjcp_name": "Wee Heavy",
+    "ba_name": "Scotch Ale or Wee Heavy",
+    "relationship": "equivalent_to",
+    "confidence": "high"
+  },
+  {
+    "bjcp_name": "Oatmeal Stout",
+    "ba_name": "Oatmeal Stout",
+    "relationship": "equivalent_to",
+    "confidence": "high"
+  },
+  {
+    "bjcp_name": "Old Ale",
+    "ba_name": "Old Ale",
+    "relationship": "equivalent_to",
+    "confidence": "high"
+  },
+  {
+    "bjcp_name": "Ordinary Bitter",
+    "ba_name": "Ordinary Bitter",
+    "relationship": "equivalent_to",
+    "confidence": "high"
+  },
+  {
+    "bjcp_name": "Best Bitter",
+    "ba_name": "Special Bitter or Best Bitter",
+    "relationship": "equivalent_to",
+    "confidence": "high"
+  },
+  {
+    "bjcp_name": "American IPA",
+    "ba_name": "West Coast-Style India Pale Ale",
+    "relationship": "subtype_of",
+    "confidence": "high"
+  },
+  {
+    "bjcp_name": "Gose",
+    "ba_name": "Leipzig-Style Gose",
+    "relationship": "variant_of",
+    "confidence": "high"
+  },
+  {
+    "bjcp_name": "Gose",
+    "ba_name": "Contemporary-Style Gose",
+    "relationship": "variant_of",
+    "confidence": "high"
+  },
+  {
+    "bjcp_name": "Lambic",
+    "ba_name": "Faro",
+    "relationship": "preparation_variant",
+    "confidence": "high"
+  },
+  {
+    "bjcp_name": "Weissbier",
+    "ba_name": "South German-Style Kristal Weizen",
+    "relationship": "related_variant",
+    "confidence": "high"
+  }
+]

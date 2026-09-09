@@ -25,6 +25,7 @@ from knowledge.hop_recommendations import (
 from knowledge.hop_substitutions import (
     format_hop_substitutions,
 )
+from knowledge.style_synthesis import format_style_synthesis
 
 from intelligence.beer30_queries import (
     is_wip_question,
@@ -199,6 +200,96 @@ def clean_question(question):
             break
 
     return question.strip()
+
+def format_style_for_slack(style, question=None):
+    """Format a beer style record for Slack."""
+    question_lower = (question or "").lower()
+
+    full_detail_phrases = [
+        "full description",
+        "full details",
+        "full detail",
+        "complete description",
+        "complete details",
+        "complete detail",
+        "detailed description",
+        "detailed details",
+        "all the details",
+        "everything about",
+        "full bjcp",
+        "bjcp description",
+    ]
+
+    full_detail = any(
+        phrase in question_lower
+        for phrase in full_detail_phrases
+    )
+
+    lines = [
+        f"*{style['name']}*",
+        f"Category: {style['category']}",
+        f"Origin: {style['country_of_origin'] or 'Not specified'}",
+    ]
+
+    if full_detail:
+        if style["history"]:
+            lines.extend(["", f"History: {style['history']}"])
+
+        if style["description"]:
+            lines.extend(["", f"Description: {style['description']}"])
+
+        if style["aroma"]:
+            lines.append(f"Aroma: {style['aroma']}")
+
+        if style["appearance"]:
+            lines.append(f"Appearance: {style['appearance']}")
+
+        if style["flavor"]:
+            lines.append(f"Flavor: {style['flavor']}")
+
+        if style["mouthfeel"]:
+            lines.append(f"Mouthfeel: {style['mouthfeel']}")
+
+        if style["ingredients"]:
+            lines.extend(["", f"Ingredients: {style['ingredients']}"])
+
+    if style["typical_abv_min"] is not None:
+        lines.append(
+            f"Typical ABV: {style['typical_abv_min']:.1f}%–"
+            f"{style['typical_abv_max']:.1f}%"
+        )
+
+    if style["typical_ibu_min"] is not None:
+        lines.append(
+            f"Typical IBU: {style['typical_ibu_min']:.0f}–"
+            f"{style['typical_ibu_max']:.0f}"
+        )
+
+    if style["typical_og_min"] is not None:
+        lines.append(
+            f"Typical OG: {style['typical_og_min']:.3f}–"
+            f"{style['typical_og_max']:.3f}"
+        )
+
+    if style["typical_fg_min"] is not None:
+        lines.append(
+            f"Typical FG: {style['typical_fg_min']:.3f}–"
+            f"{style['typical_fg_max']:.3f}"
+        )
+
+    if style["typical_srm_min"] is not None:
+        lines.append(
+            f"Typical SRM: {style['typical_srm_min']:.0f}–"
+            f"{style['typical_srm_max']:.0f}"
+        )
+
+    if not full_detail and style["description"]:
+        lines.extend(["", style["description"]])
+
+    lines.extend(["", f"Source: {style['source']}"])
+
+    return "\n".join(lines)
+
 
 def display_style(style, question=None):
     question_lower = (question or "").lower()
@@ -729,13 +820,44 @@ def answer_question(question):
             return
 
     # ---------------------------------------------------------
-    # 3. EXACT STYLE
+    # 3. STYLE QUESTIONS
     # ---------------------------------------------------------
+
     # Brewers Association style
-    ba_style_answer = answer_ba_style_question(cleaned)
-    if ba_style_answer:
-        return ba_style_answer
-    
+    if "brewers association" in question.lower():
+        ba_style_answer = answer_ba_style_question(cleaned)
+        if ba_style_answer:
+            return ba_style_answer
+
+    # BJCP-specific style question
+    if "bjcp" in question.lower():
+        bjcp_question = cleaned
+
+        for prefix in [
+            "what does bjcp say about ",
+            "what does the bjcp say about ",
+            "bjcp says about ",
+            "bjcp description of ",
+            "bjcp details of ",
+            "bjcp information on ",
+            "bjcp information for ",
+        ]:
+            if bjcp_question.startswith(prefix):
+                bjcp_question = bjcp_question[len(prefix):].strip()
+                break
+
+        styles = search_exact_style(bjcp_question)
+
+        if styles:
+            display_style(styles[0], question)
+            return format_style_for_slack(styles[0], question)
+
+    # General style synthesis
+    style_synthesis = format_style_synthesis(cleaned)
+    if style_synthesis:
+        return style_synthesis
+
+    # BJCP encyclopedia style
     styles = search_exact_style(cleaned)
 
     if styles:

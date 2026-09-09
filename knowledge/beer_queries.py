@@ -1,6 +1,7 @@
 import re
 
 from knowledge.database import get_connection
+from knowledge.style_crosswalk import find_relationships
 
 
 def find_ba_style(style_name):
@@ -599,6 +600,8 @@ def answer_ba_style_question(style_name):
     style_name = style_name.strip()
 
     prefixes = [
+        "what does the brewers association say about ",
+        "what does brewers association say about ",
         "brewers association description of ",
         "brewers association details of ",
         "brewers association information on ",
@@ -611,6 +614,17 @@ def answer_ba_style_question(style_name):
             break
 
     ba_style = find_ba_style(style_name)
+
+    # If the user used a BJCP style name, resolve it
+    # through the style crosswalk to the BA equivalent.
+    if ba_style is None:
+        relationships = find_relationships(style_name)
+
+        for relationship in relationships:
+            if relationship["relationship"] == "equivalent_to":
+                ba_style = find_ba_style(relationship["ba_name"])
+                if ba_style is not None:
+                    break
 
     if ba_style is None:
         return None
