@@ -653,12 +653,88 @@ def answer_task_question(question):
     # Remove quotation marks surrounding the entire question.
     normalized = normalized.strip("\"'“”‘’").strip()
 
-    # Make sure the task database has the current schedule available.
+    # -------------------------------------------------
+    # SCHEDULE / TASK INTENT CHECK
+    # -------------------------------------------------
+    #
+    # Do this BEFORE loading the Google Sheets schedule.
+    # This prevents unrelated questions, such as hop
+    # questions, from triggering a schedule lookup.
+    #
+
+    schedule_intent_phrases = [
+        # Remaining tasks
+        "what's left today",
+        "what is left today",
+        "what's left for today",
+        "what is left for today",
+        "what remains today",
+        "what remains for today",
+        "what haven't we finished",
+        "what have we not finished",
+        "what is unfinished",
+        "what's unfinished",
+        "what do i still need to do",
+        "what do we still need to do",
+        "what's remaining today",
+        "what is remaining today",
+
+        # Schedule
+        "what is on the schedule",
+        "what's on the schedule",
+        "what is scheduled",
+        "what's scheduled",
+        "what are we doing",
+        "what do we have",
+        "what is planned",
+        "what's planned",
+        "schedule for",
+
+        # Upcoming
+        "what is coming up",
+        "what's coming up",
+        "what is coming",
+        "what's coming",
+        "what do we have coming up",
+        "what do we have coming",
+        "what is coming next",
+        "what's coming next",
+        "what is planned for next week",
+        "what's planned for next week",
+
+        # Events
+        "what events are coming up",
+        "what events are coming",
+        "what events do we have",
+        "what are the upcoming events",
+
+        # Task/event date questions
+        "what day",
+        "what days",
+        "when is",
+        "when are",
+        "when do we",
+        "when does",
+        "what date",
+    ]
+
+    if not any(
+        phrase in normalized
+        for phrase in schedule_intent_phrases
+    ):
+        return None
+
+    # -------------------------------------------------
+    # LOAD CURRENT SCHEDULE
+    # -------------------------------------------------
+
+    # Only load Google Sheets data after we've established
+    # that this is actually a schedule/task question.
     try:
         learn_current_schedule()
     except Exception:
-        # Existing learned knowledge can still be used if Google Sheets
-        # is temporarily unavailable.
+        # Existing learned knowledge can still be used if
+        # Google Sheets is temporarily unavailable.
         pass
 
     # -------------------------------------------------
@@ -729,7 +805,7 @@ def answer_task_question(question):
     if any(phrase in normalized for phrase in upcoming_phrases):
         return format_upcoming_schedule()
 
-        # -------------------------------------------------
+    # -------------------------------------------------
     # DATED EVENTS
     # -------------------------------------------------
 
@@ -801,7 +877,7 @@ def answer_task_question(question):
             for phrase in event_list_phrases
         ):
             return format_dated_events()
-        
+
     # -------------------------------------------------
     # DAY -> SCHEDULE
     # -------------------------------------------------
@@ -838,6 +914,7 @@ def answer_task_question(question):
         "when are",
         "when do we",
         "when does",
+        "what date",
     ]
 
     if not any(
@@ -846,7 +923,10 @@ def answer_task_question(question):
     ):
         return None
 
-    # Extract the subject of the question.
+    # -------------------------------------------------
+    # EXTRACT TASK SUBJECT
+    # -------------------------------------------------
+
     search_term = extract_task_search_term(question)
 
     # Event wording is not a learned task.
@@ -860,11 +940,13 @@ def answer_task_question(question):
 
     search_term = search_term.strip(" \"'")
 
-
     if not search_term:
         return None
 
-    # Try to identify an operational action.
+    # -------------------------------------------------
+    # TRY TO IDENTIFY AN OPERATIONAL ACTION
+    # -------------------------------------------------
+
     action = extract_action(question)
 
     # -------------------------------------------------
