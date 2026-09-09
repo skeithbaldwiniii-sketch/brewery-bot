@@ -3,6 +3,54 @@ import re
 from knowledge.database import get_connection
 
 
+def find_ba_style(style_name):
+    """Find an exact Brewers Association style by name."""
+
+    connection = get_connection()
+
+    row = connection.execute(
+        """
+        SELECT
+            name,
+            guideline_year,
+            section,
+            subsection,
+            page,
+            source
+        FROM ba_styles
+        WHERE LOWER(name) = LOWER(?)
+        """,
+        (style_name.strip(),),
+    ).fetchone()
+
+    connection.close()
+
+    return row
+
+def format_ba_style(ba_style):
+    """
+    Format a Brewers Association style source record.
+    """
+
+    if ba_style is None:
+        return None
+
+    lines = [
+        f"*{ba_style['name']}*",
+        f"Brewers Association Beer Style Guidelines ({ba_style['guideline_year']})",
+    ]
+
+    if ba_style["section"]:
+        lines.append(f"Section: {ba_style['section']}")
+
+    if ba_style["subsection"]:
+        lines.append(f"Subsection: {ba_style['subsection']}")
+
+    if ba_style["page"]:
+        lines.append(f"Page: {ba_style['page']}")
+
+    return "\n".join(lines)
+
 def find_beer(beer_name):
     """
     Find a brewery beer by exact name.

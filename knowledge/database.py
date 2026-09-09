@@ -59,6 +59,70 @@ def initialize_database():
     """)
 
         # ---------------------------------------------------------
+    # BREWERS ASSOCIATION BEER STYLES
+    # ---------------------------------------------------------
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS ba_styles (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL UNIQUE,
+            guideline_year INTEGER,
+            section TEXT,
+            subsection TEXT,
+            page INTEGER,
+
+            color TEXT,
+            clarity TEXT,
+            malt_aroma_flavor TEXT,
+            hop_aroma_flavor TEXT,
+            perceived_bitterness TEXT,
+            fermentation_characteristics TEXT,
+            body TEXT,
+            additional_notes TEXT,
+
+            original_gravity TEXT,
+            final_gravity TEXT,
+            alcohol TEXT,
+            ibu TEXT,
+            srm TEXT,
+
+            source TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
+        # Add newer BA style detail columns to existing databases.
+    ba_columns = {
+        "color": "TEXT",
+        "clarity": "TEXT",
+        "malt_aroma_flavor": "TEXT",
+        "hop_aroma_flavor": "TEXT",
+        "perceived_bitterness": "TEXT",
+        "fermentation_characteristics": "TEXT",
+        "body": "TEXT",
+        "additional_notes": "TEXT",
+        "original_gravity": "TEXT",
+        "final_gravity": "TEXT",
+        "alcohol": "TEXT",
+        "ibu": "TEXT",
+        "srm": "TEXT",
+    }
+
+    existing_columns = {
+        row["name"]
+        for row in connection.execute(
+            "PRAGMA table_info(ba_styles)"
+        ).fetchall()
+    }
+
+    for column_name, column_type in ba_columns.items():
+        if column_name not in existing_columns:
+            connection.execute(
+                f"ALTER TABLE ba_styles ADD COLUMN {column_name} {column_type}"
+            )
+
+        # ---------------------------------------------------------
     # HOP VARIETIES
     # ---------------------------------------------------------
 
