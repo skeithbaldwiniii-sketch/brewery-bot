@@ -6,12 +6,17 @@ def test_format_ba_style():
 
     result = format_ba_style(row)
 
-    assert "*West Coast-Style India Pale Ale*" in result
-    assert "Brewers Association Beer Style Guidelines (2024)" in result
-    assert "Section: Ale Styles" in result
-    assert "Subsection: North American Origin Ale Styles" in result
-    assert "Page: 11" in result
-
+    assert "*Color:* Straw to gold" in result
+    assert "*Perceived Malt Aroma & Flavor:*" in result
+    assert "*Perceived Hop Aroma & Flavor:*" in result
+    assert "*Perceived Bitterness:*" in result
+    assert "*Fermentation Characteristics:*" in result
+    assert "*Body:* Low to medium" in result
+    assert "Original Gravity: 1.055-1.070" in result
+    assert "Final Gravity: 1.005-1.012" in result
+    assert "Alcohol: 5.0%-6.0%" in result
+    assert "IBU: 50-75" in result
+    assert "SRM: 2-6" in result
 
 def test_format_ba_style_missing():
     result = format_ba_style(None)

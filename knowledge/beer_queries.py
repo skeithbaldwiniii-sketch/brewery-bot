@@ -16,6 +16,19 @@ def find_ba_style(style_name):
             section,
             subsection,
             page,
+            color,
+            clarity,
+            malt_aroma_flavor,
+            hop_aroma_flavor,
+            perceived_bitterness,
+            fermentation_characteristics,
+            body,
+            additional_notes,
+            original_gravity,
+            final_gravity,
+            alcohol,
+            ibu,
+            srm,
             source
         FROM ba_styles
         WHERE LOWER(name) = LOWER(?)
@@ -29,7 +42,7 @@ def find_ba_style(style_name):
 
 def format_ba_style(ba_style):
     """
-    Format a Brewers Association style source record.
+    Format a Brewers Association style record for display.
     """
 
     if ba_style is None:
@@ -48,6 +61,65 @@ def format_ba_style(ba_style):
 
     if ba_style["page"]:
         lines.append(f"Page: {ba_style['page']}")
+
+    lines.append("")
+
+    if ba_style["color"]:
+        lines.append(f"*Color:* {ba_style['color']}")
+
+    if ba_style["clarity"]:
+        lines.append(f"*Clarity:* {ba_style['clarity']}")
+
+    if ba_style["malt_aroma_flavor"]:
+        lines.append(
+            f"*Perceived Malt Aroma & Flavor:* "
+            f"{ba_style['malt_aroma_flavor']}"
+        )
+
+    if ba_style["hop_aroma_flavor"]:
+        lines.append(
+            f"*Perceived Hop Aroma & Flavor:* "
+            f"{ba_style['hop_aroma_flavor']}"
+        )
+
+    if ba_style["perceived_bitterness"]:
+        lines.append(
+            f"*Perceived Bitterness:* "
+            f"{ba_style['perceived_bitterness']}"
+        )
+
+    if ba_style["fermentation_characteristics"]:
+        lines.append(
+            f"*Fermentation Characteristics:* "
+            f"{ba_style['fermentation_characteristics']}"
+        )
+
+    if ba_style["body"]:
+        lines.append(f"*Body:* {ba_style['body']}")
+
+    if ba_style["additional_notes"]:
+        lines.append(
+            f"*Additional Notes:* "
+            f"{ba_style['additional_notes']}"
+        )
+
+    lines.append("")
+    lines.append("*Style Statistics:*")
+
+    if ba_style["original_gravity"]:
+        lines.append(f"Original Gravity: {ba_style['original_gravity']}")
+
+    if ba_style["final_gravity"]:
+        lines.append(f"Final Gravity: {ba_style['final_gravity']}")
+
+    if ba_style["alcohol"]:
+        lines.append(f"Alcohol: {ba_style['alcohol']}")
+
+    if ba_style["ibu"]:
+        lines.append(f"IBU: {ba_style['ibu']}")
+
+    if ba_style["srm"]:
+        lines.append(f"SRM: {ba_style['srm']}")
 
     return "\n".join(lines)
 
@@ -517,6 +589,33 @@ def answer_beer_question(beer_name):
 
     return format_beer_summary(beer)
 
+def answer_ba_style_question(style_name):
+    """
+    Answer a Brewers Association beer style question.
+
+    Returns formatted BA style information, or None if the
+    style is not found in the Brewers Association database.
+    """
+    style_name = style_name.strip()
+
+    prefixes = [
+        "brewers association description of ",
+        "brewers association details of ",
+        "brewers association information on ",
+        "brewers association information for ",
+    ]
+
+    for prefix in prefixes:
+        if style_name.lower().startswith(prefix):
+            style_name = style_name[len(prefix):].strip()
+            break
+
+    ba_style = find_ba_style(style_name)
+
+    if ba_style is None:
+        return None
+
+    return format_ba_style(ba_style)
 
 if __name__ == "__main__":
     print("=== Brewery Beer Question Tests ===")

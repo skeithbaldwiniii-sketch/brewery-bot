@@ -3,11 +3,15 @@ import unicodedata
 from knowledge.database import get_connection
 from knowledge.beer_queries import (
     answer_beer_question,
+    answer_ba_style_question,
 )
 from knowledge.hop_intelligence import (
     extract_hop_name,
     format_hop_profile,
 )
+
+from knowledge.style_aliases import STYLE_ALIASES
+from knowledge.style_crosswalk import find_all_equivalents
 
 from knowledge.hop_comparison import (
     extract_two_hop_names,
@@ -47,6 +51,8 @@ STYLE_FAMILIES = {
 
 last_style_list = {}
 
+
+
 def normalize_style_name(name):
     """Normalize a beer style name for matching."""
 
@@ -61,6 +67,19 @@ def normalize_style_name(name):
 
     if name.startswith("historical beer:"):
         name = name[len("historical beer:"):].strip()
+
+    if name in STYLE_ALIASES:
+        return STYLE_ALIASES[name]
+
+    for relationship in find_all_equivalents():
+        bjcp_name = relationship["bjcp_name"].lower()
+        ba_name = relationship["ba_name"].lower()
+
+        if name == bjcp_name:
+            return bjcp_name
+
+        if name == ba_name:
+            return bjcp_name
 
     return name
 
@@ -712,6 +731,11 @@ def answer_question(question):
     # ---------------------------------------------------------
     # 3. EXACT STYLE
     # ---------------------------------------------------------
+    # Brewers Association style
+    ba_style_answer = answer_ba_style_question(cleaned)
+    if ba_style_answer:
+        return ba_style_answer
+    
     styles = search_exact_style(cleaned)
 
     if styles:
