@@ -75,6 +75,57 @@ def _request(
             "Beer30 returned a response that was not valid JSON."
         ) from exc
 
+def _export_data(query_name: str, type_: str | None = None) -> list[dict]:
+    """
+    Retrieve a Beer30 export-data dataset.
+
+    Beer30 expects the export query name in the JSON request body.
+    """
+    if not BEER30_API_KEY:
+        raise Beer30Error("BEER30_API_KEY is not configured in the environment.")
+
+    url = f"{BEER30_BASE_URL}/reports/export-data"
+
+    body = {
+        "query-name": query_name,
+    }
+
+    if type_:
+        body["type"] = type_
+
+    response = requests.get(
+        url,
+        params={
+            "key": BEER30_API_KEY,
+            "format": "JSON",
+        },
+        json=body,
+        timeout=30,
+    )
+
+    if response.status_code == 429:
+        raise Beer30Error("Beer30 API rate limit exceeded.")
+
+    if not response.ok:
+        raise Beer30Error(
+            f"Beer30 API returned HTTP {response.status_code}: "
+            f"{response.text[:500]}"
+        )
+
+    if response.status_code == 204:
+        return []
+
+    try:
+        data = response.json()
+    except ValueError as exc:
+        raise Beer30Error(
+            "Beer30 returned a response that was not valid JSON."
+        ) from exc
+
+    if isinstance(data, dict):
+        return data.get("export-data", [])
+
+    return []
 
 def get_inventory(item_type: str) -> dict[str, Any] | list[Any] | None:
     """
@@ -636,6 +687,51 @@ def get_wip_report(report_date: str) -> list[dict]:
 
     if isinstance(response, dict):
         return response.get("wip-report", [])
+
+    return []
+
+def get_fermentation_summary() -> list[dict]:
+    """
+    Retrieve Beer30's fermentation summary export.
+
+    Beer30 expects the query name in the JSON request body.
+    Gravity values are reported in degrees Plato.
+    """
+    if not BEER30_API_KEY:
+        raise Beer30Error("BEER30_API_KEY is not configured in the environment.")
+
+    url = f"{BEER30_BASE_URL}/reports/export-data"
+
+    response = requests.get(
+        url,
+        params={
+            "key": BEER30_API_KEY,
+            "format": "JSON",
+        },
+        json={
+            "query-name": "TableExport_FermentationSummary",
+        },
+        timeout=30,
+    )
+
+    if response.status_code == 429:
+        raise Beer30Error("Beer30 API rate limit exceeded.")
+
+    if not response.ok:
+        raise Beer30Error(
+            f"Beer30 API returned HTTP {response.status_code}: "
+            f"{response.text[:500]}"
+        )
+
+    try:
+        data = response.json()
+    except ValueError as exc:
+        raise Beer30Error(
+            "Beer30 returned a response that was not valid JSON."
+        ) from exc
+
+    if isinstance(data, dict):
+        return data.get("export-data", [])
 
     return []
 

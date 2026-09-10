@@ -1,7 +1,15 @@
+from datetime import date
+
+from integrations.beer30 import (
+    get_wip_report,
+    get_fermentation_summary,
+)
 from integrations.google_sheets import get_column_a
 from reports.daily_tasks import get_tasks_for_day
 from reports.daily_report import build_daily_report
+from reports.tank_status import format_tank_status
 from integrations.slack import send_message
+
 
 
 def main():
@@ -9,8 +17,17 @@ def main():
     column_a = get_column_a()
     tasks = get_tasks_for_day(column_a)
 
+    # Get current Beer30 tank status.
+    wip_records = get_wip_report(date.today().isoformat())
+    fermentation_records = get_fermentation_summary()
+
+    tank_status = format_tank_status(
+        wip_records,
+        fermentation_records,
+    )
+
     # Build the daily report.
-    report = build_daily_report(tasks)
+    report = build_daily_report(tasks, tank_status)
 
     # Display the report locally.
     print()
