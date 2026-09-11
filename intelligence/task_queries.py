@@ -10,6 +10,8 @@ from knowledge.task_knowledge import (
     find_tasks_by_component,
 )
 
+from integrations.schedule_writer import complete_task_on_day
+
 
 DAYS = [
     "monday",
@@ -444,7 +446,7 @@ def extract_task_search_term(question):
     ]
 
     return " ".join(words).strip()
-    
+
 
 
 def find_action_subject_matches(
@@ -630,6 +632,97 @@ def format_action_subject(
 
     return "\n".join(lines)
 
+def is_task_completion_request(question):
+    normalized = str(question).lower().strip()
+
+    return bool(
+        re.search(
+            r"\bmark\s+.+?\s+as\s+completed\b",
+            normalized,
+        )
+    )
+
+def complete_task_from_question(question):
+    """
+    Handle requests to mark a scheduled task as completed.
+
+    Examples:
+
+        Mark Transfer Festbier as completed
+        Please mark Transfer Festbier as completed
+        Mark Transfer Festbier on Thursday as completed
+    """
+
+    normalized = str(question).lower().strip()
+
+    match = re.search(
+        r"\bmark\s+(.+?)\s+as\s+completed\b",
+        normalized,
+    )
+
+    if not match:
+        return None
+
+    task_search_term = match.group(1).strip()
+
+    # Remove an explicit day from the search term if present.
+    day_name = extract_day(task_search_term)
+
+    if day_name:
+        task_search_term = re.sub(
+            rf"\b{re.escape(day_name)}\b",
+            " ",
+            task_search_term,
+        )
+
+    task_search_term = re.sub(
+        r"\s+",
+        " ",
+        task_search_term,
+    ).strip()
+
+    if not task_search_term:
+        return (
+            "I couldn't determine which task you want "
+            "to mark as completed."
+        )
+
+    # If no day was specified, assume today.
+    if not day_name:
+        day_name = get_today_name()
+
+    matches = find_task_days(task_search_term)
+
+    day_matches = [
+        match
+        for match in matches
+        if match["day"].lower() == day_name
+    ]
+
+    if not day_matches:
+        return (
+            f"I couldn't find '{task_search_term}' "
+            f"on the {day_name.title()} schedule."
+        )
+
+    # Use the exact task text from the learned schedule.
+    task = day_matches[0]["task"]
+
+    result = complete_task_on_day(
+        task,
+        day_name,
+    )
+
+    if not result["completed"]:
+        return (
+            f"I found '{task}' on {day_name.title()}, "
+            "but couldn't mark it as completed."
+        )
+
+    return (
+        f"Marked '{task}' as completed on "
+        f"{day_name.title()}."
+    )
 
 def answer_task_question(question):
     """
@@ -652,6 +745,15 @@ def answer_task_question(question):
 
     # Remove quotation marks surrounding the entire question.
     normalized = normalized.strip("\"'“”‘’").strip()
+
+    # -------------------------------------------------
+    # TASK COMPLETION
+    # -------------------------------------------------
+
+    completion_response = complete_task_from_question(question)
+
+    if completion_response is not None:
+        return completion_response
 
     # -------------------------------------------------
     # SCHEDULE / TASK INTENT CHECK

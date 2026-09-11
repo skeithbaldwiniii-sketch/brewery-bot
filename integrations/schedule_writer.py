@@ -219,6 +219,98 @@ def remove_task_from_day(task, day_name):
         "removed": False,
     }
 
+def complete_task_on_day(task, day_name):
+    """
+    Mark an exact task as completed by applying strikethrough
+    formatting to the task cell.
+
+    The task text itself is not modified.
+    """
+
+    if not task or not task.strip():
+        raise ValueError("Task cannot be empty.")
+
+    task = task.strip()
+    day_name = day_name.lower().strip()
+
+    if day_name not in DAYS:
+        raise ValueError(
+            f"Invalid day name: {day_name}"
+        )
+
+    worksheet = connect_to_sheet()
+
+    day_row, next_day_row = _find_day_section(
+        worksheet,
+        day_name,
+    )
+
+    values = worksheet.col_values(1)
+
+    section_end = (
+        next_day_row - 1
+        if next_day_row is not None
+        else (
+            75
+            if day_name == "friday"
+            else len(values)
+        )
+    )
+
+    for row_number in range(
+        day_row + 1,
+        section_end + 1,
+    ):
+        value = worksheet.cell(row_number, 1).value
+
+        if value and value.strip().lower() == task.lower():
+            service = _get_sheets_service()
+
+            spreadsheet_id = worksheet.spreadsheet.id
+
+            request = {
+                "requests": [
+                    {
+                        "repeatCell": {
+                            "range": {
+                                "sheetId": worksheet.id,
+                                "startRowIndex": row_number - 1,
+                                "endRowIndex": row_number,
+                                "startColumnIndex": 0,
+                                "endColumnIndex": 1,
+                            },
+                            "cell": {
+                                "userEnteredFormat": {
+                                    "textFormat": {
+                                        "strikethrough": True
+                                    }
+                                }
+                            },
+                            "fields": "userEnteredFormat.textFormat.strikethrough",
+                        }
+                    }
+                ]
+            }
+
+            service.spreadsheets().batchUpdate(
+                spreadsheetId=spreadsheet_id,
+                body=request,
+            ).execute()
+
+            return {
+                "task": task,
+                "day": day_name,
+                "row": row_number,
+                "completed": True,
+            }
+
+    return {
+        "task": task,
+        "day": day_name,
+        "row": None,
+        "completed": False,
+    }
+
 def move_task_between_days(task, from_day, to_day):
     """
     Move an exact task from one day to another.

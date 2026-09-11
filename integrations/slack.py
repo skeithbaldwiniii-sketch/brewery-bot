@@ -14,7 +14,10 @@ from knowledge.ask import (
     search_style_family,
 )
 from knowledge.beer_queries import answer_brewery_beer_question
-from intelligence.task_queries import answer_task_question
+from intelligence.task_queries import (
+    answer_task_question,
+    is_task_completion_request,
+)
 from intelligence.beer30_queries import (
     is_wip_question,
     answer_wip_question,
@@ -460,11 +463,11 @@ def handle_mention(event, say):
             say(answer)
 
         return
-    # ---------------------------------------------
-    # SCHEDULE QUESTIONS
+       # ---------------------------------------------
+    # TASK COMPLETION
     # ---------------------------------------------
 
-    if is_schedule_question(question):
+    if is_task_completion_request(question):
 
         if not require_capability(channel_id, SCHEDULE):
             say(access_denied_message(SCHEDULE))
@@ -475,8 +478,24 @@ def handle_mention(event, say):
         if answer:
             say(answer)
         else:
-            say("I couldn't find a schedule answer for that question.")
+            say("I couldn't mark that task as completed.")
 
+        return
+
+    # ---------------------------------------------
+    # SCHEDULE QUESTIONS
+    # ---------------------------------------------
+
+    if is_schedule_question(question):
+        if not require_capability(channel_id, SCHEDULE):
+            say(access_denied_message(SCHEDULE))
+            return
+
+        answer = handle_schedule_question(question)
+        if answer:
+            say(answer)
+        else:
+            say("I couldn't find a schedule answer for that question.")
         return
 
     # ---------------------------------------------
