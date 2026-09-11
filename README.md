@@ -84,6 +84,7 @@ The system currently incorporates:
 
 - BJCP 2021 Beer Style Guidelines
 - Brewers Association 2024 Beer Style Guidelines
+- Structured hop information
 - General brewing knowledge
 - Brewery-specific beer information
 
@@ -118,6 +119,29 @@ What does BJCP say about Festbier?
 ```
 
 returns the BJCP style information without replacing it with another organization's specifications.
+
+---
+
+#### BJCP Category Structure
+
+BJCP category structure is preserved in the source data rather than flattening categories into individual beer styles.
+
+For example:
+
+```text
+21B Specialty IPA
+├── Belgian IPA
+├── Black IPA
+├── Brown IPA
+├── Brut IPA
+├── Red IPA
+├── Rye IPA
+└── White IPA
+```
+
+`21B Specialty IPA` is treated as the parent competition category. The seven defined Specialty IPA types retain their own specifications rather than inheriting statistics from the parent category.
+
+This preserves source accuracy and allows questions about either the category or an individual subtype to be handled appropriately.
 
 ---
 
@@ -156,6 +180,32 @@ What does the Brewers Association say about Festbier?
 ```
 
 returns the Brewers Association guideline information independently of the BJCP data.
+
+---
+
+## 🌿 Hop Intelligence
+
+Brews Springsteen includes a structured hop knowledge and intelligence layer.
+
+Current functionality includes:
+
+- Structured hop profiles
+- Hop characteristics and descriptors
+- Hop queries
+- Hop comparisons
+- Hop recommendations
+- Natural-language hop routing
+- Hop intelligence based on brewing characteristics
+
+The goal is to allow questions such as:
+
+```text
+Compare Citra and Mosaic.
+What are the characteristics of Citra?
+Give me hops similar to this one.
+```
+
+Hop intelligence is designed to interpret structured hop data rather than relying solely on free-form generated knowledge.
 
 ---
 
@@ -252,7 +302,7 @@ Current functionality includes:
 - Natural-language WIP queries through Slack
 - Beer30 inventory data retrieval and snapshot infrastructure
 
-The current Beer30 integration uses sandbox data for development and testing.
+The current Beer30 integration uses sandbox data for development and testing. The integration also includes retry and connection handling, tank-status reporting, and inventory snapshot infrastructure.
 
 Because sandbox data may not represent current brewery operations, Beer30 WIP responses identify the source report date and local retrieval timestamp rather than presenting the information as live operational data.
 
@@ -544,7 +594,7 @@ run_eod_report.bat
 
 ## 🧪 Testing
 
-The project uses `pytest` for automated testing.
+The project uses `pytest` for automated testing. The current regression suite contains **78 tests** covering operational workflows, integrations, beer knowledge, hop intelligence, style synthesis, routing, and task completion.
 
 Run the complete test suite with:
 
@@ -605,15 +655,20 @@ The project currently has operational components for:
 
 - Schedule intelligence
 - Task intelligence
+- Natural-language task completion
 - Slack integration
 - Daily reporting
 - End-of-day reporting
+- Tank and fermentation status
 - Beer knowledge
 - BJCP style information
 - Brewers Association style information
 - BJCP/BA style crosswalking
 - Deterministic BJCP/BA style synthesis
+- Hop intelligence
+- Hop comparisons and recommendations
 - Beer30 sandbox integration
+- Beer30 WIP and inventory infrastructure
 
 The Beer30 live-data expansion is currently pending access to current production data.
 
@@ -656,6 +711,7 @@ The project provides hands-on experience with:
 
 - API integration
 - Data modeling
+- Knowledge-source migration
 - Database design
 - Automation
 - Natural-language interfaces
