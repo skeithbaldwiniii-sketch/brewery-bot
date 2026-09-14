@@ -15,6 +15,11 @@ from integrations.gmail import (
     download_email_attachment,
 )
 
+from knowledge.upserve import (
+    is_report_processed,
+    mark_report_processed,
+)
+
 
 TARGET_CATEGORIES = {"B - Full", "C - Full"}
 
@@ -191,9 +196,126 @@ def download_latest_upserve_report(output_dir="data/upserve"):
         "No CSV attachment was found in the Upserve email."
     )
 
+def download_latest_upserve_report_with_source(
+    output_dir="data/upserve",
+):
+    """Download the latest Upserve report and return its source metadata."""
+
+    output_path = Path(output_dir)
+    output_path.mkdir(parents=True, exist_ok=True)
+
+    emails = search_emails(
+        'has:attachment "Vanish Weekly Product Mix"',
+        max_results=10,
+    )
+
+    if not emails:
+        raise FileNotFoundError(
+            "No Upserve Product Mix email was found."
+        )
+
+    for email in emails:
+        attachments = get_email_attachments(email["id"])
+
+        csv_attachments = [
+            attachment
+            for attachment in attachments
+            if attachment["filename"].lower().endswith(".csv")
+        ]
+
+        if not csv_attachments:
+            continue
+
+        attachment = csv_attachments[0]
+
+        data = download_email_attachment(
+            email["id"],
+            attachment["attachment_id"],
+        )
+
+        if not data:
+            raise ValueError(
+                f"Downloaded attachment is empty: "
+                f"{attachment['filename']}"
+            )
+
+        file_path = output_path / attachment["filename"]
+        file_path.write_bytes(data)
+
+        return {
+            "message_id": email["id"],
+            "email_subject": email["subject"],
+            "email_date": email["date"],
+            "filename": attachment["filename"],
+            "file_path": file_path,
+        }
+
+    raise FileNotFoundError(
+        "No CSV attachment was found in the Upserve email."
+    )
+
 def get_latest_upserve_sales_report():
     """Download and parse the latest Upserve sales report."""
 
     file_path = download_latest_upserve_report()
 
     return parse_upserve_sales_report(file_path)
+
+def get_latest_upserve_sales_report_with_source():
+    """Download, parse, and return the latest Upserve report with source metadata."""
+
+    source = download_latest_upserve_report_with_source()
+
+    report = parse_upserve_sales_report(source["file_path"])
+
+    return {
+        "message_id": source["message_id"],
+        "email_subject": source["email_subject"],
+        "email_date": source["email_date"],
+        "filename": source["filename"],
+        "file_path": source["file_path"],
+        "report": report,
+    }
+
+def process_latest_upserve_report():
+    """
+    Process the latest Upserve report exactly once.
+
+    Returns a status dictionary describing what happened.
+    """
+
+    source = get_latest_upserve_sales_report_with_source()
+
+    message_id = source["message_id"]
+    report = source["report"]
+
+    if is_report_processed(message_id):
+        return {
+            "status": "already_processed",
+            "message_id": message_id,
+            "reporting_period": report["reporting_period"],
+        }
+
+    from reports.upserve_report import format_upserve_sales_report
+    from integrations.slack import send_staff_message
+
+    message = format_upserve_sales_report(report)
+
+    response = send_staff_message(message)
+
+    if not response.get("ok"):
+        raise RuntimeError(
+            "Slack failed to send the Upserve report."
+        )
+
+    mark_report_processed(
+        message_id,
+        report["reporting_period"],
+    )
+
+    return {
+        "status": "processed",
+        "message_id": message_id,
+        "reporting_period": report["reporting_period"],
+        "slack_timestamp": response.get("ts"),
+    }

@@ -281,6 +281,19 @@ def initialize_database():
         )
     """)
 
+        # ---------------------------------------------------------
+    # UPSERVE PROCESSED REPORTS
+    # ---------------------------------------------------------
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS upserve_processed_reports (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            message_id TEXT NOT NULL UNIQUE,
+            reporting_period TEXT,
+            processed_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
     connection.commit()
     connection.close()
 
