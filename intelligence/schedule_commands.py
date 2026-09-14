@@ -8,12 +8,17 @@ from integrations.schedule_writer import (
 
 
 DAY_PATTERN = r"(monday|tuesday|wednesday|thursday|friday|saturday|sunday)"
-
+DATE_PATTERN = r"(?:\d{1,2}/\d{1,2}(?:/\d{2,4})?)"
 
 # Pending confirmations are kept in memory.
 # Key = Slack user ID
 # Value = {"task": ..., "day": ...}
 pending_schedule_actions = {}
+
+# Pending future-event beer selections.
+# Key = Slack user ID
+# Value = {"event": ..., "date": ...}
+pending_future_events = {}
 
 
 def parse_schedule_add_request(question):
@@ -389,3 +394,137 @@ def handle_schedule_write_question(user_id, question):
         )
 
     return None
+
+# -------------------------------------------------
+# FUTURE EVENT REQUESTS
+# -------------------------------------------------
+
+def parse_future_event_request(question):
+    """
+    Parse requests such as:
+
+        add a wedding to the brewers calendar for 5/23
+        add wedding to the future events for 6/14
+        schedule a brewery tour for 7/22
+
+    Returns:
+        {"event": "...", "date": "..."}
+    or:
+        None
+    """
+
+    text = question.strip()
+
+    patterns = [
+        rf"\badd\s+(?:a\s+|an\s+)?(.+?)\s+(?:to|on)\s+(?:the\s+)?(?:brewers['’]?\s+)?(?:calendar|future events)\s+(?:for|on)\s+({DATE_PATTERN})\b",
+        rf"\badd\s+(?:a\s+|an\s+)?(.+?)\s+(?:for|on)\s+({DATE_PATTERN})\b",
+        rf"\bschedule\s+(?:a\s+|an\s+)?(.+?)\s+(?:for|on)\s+({DATE_PATTERN})\b",
+    ]
+
+    for pattern in patterns:
+        match = re.search(
+            pattern,
+            text,
+            flags=re.IGNORECASE,
+        )
+
+        if match:
+            event = match.group(1).strip()
+            date = match.group(2).strip()
+
+            if event:
+                return {
+                    "event": event,
+                    "date": date,
+                }
+
+    return None
+
+
+def is_future_event_add_request(question):
+    return parse_future_event_request(question) is not None
+
+
+def handle_future_event_request(user_id, question):
+    """
+    Add a future event and begin the beer-selection conversation.
+    """
+
+    parsed = parse_future_event_request(question)
+
+    if not parsed:
+        return None
+
+    event = parsed["event"]
+    date = parsed["date"]
+
+    from integrations.schedule_writer import add_future_event
+
+    event_text = f"{date} - {event}"
+
+    try:
+        add_future_event(event_text)
+    except Exception as exc:
+        return (
+            f'I couldn\'t add "{event}" for '
+            f'{date}: {exc}'
+        )
+
+    # Store the event so the user's next message can be
+    # interpreted as the beer selection.
+    pending_future_events[user_id] = {
+        "event": event,
+        "date": date,
+    }
+
+    return (
+        f'Added "{event}" to Future Events for {date}. '
+        f"What beers would you like for this event?"
+    )
+
+
+def has_pending_future_event(user_id):
+    return user_id in pending_future_events
+
+
+def handle_future_event_beer_response(user_id, question):
+    """
+    Handle the user's response when Brews Springsteen
+    is waiting for the beers needed for a future event.
+    """
+
+    if not has_pending_future_event(user_id):
+        return None
+
+    beer_selection = question.strip()
+
+    if not beer_selection:
+        return (
+            "Please tell me which beers you'd like for "
+            "the event."
+        )
+
+    pending_event = pending_future_events[user_id]
+
+    event = pending_event["event"]
+    date = pending_event["date"]
+
+    from integrations.schedule_writer import add_future_event
+
+    beer_text = f"Beers: {beer_selection}"
+
+    try:
+        add_future_event(beer_text)
+    except Exception as exc:
+        return (
+            f"I added the event, but I couldn't add the "
+            f"beer selection: {exc}"
+        )
+
+    # Conversation is complete.
+    del pending_future_events[user_id]
+
+    return (
+        f'Added the beer selection for "{event}" '
+        f"on {date}: {beer_selection}"
+    )

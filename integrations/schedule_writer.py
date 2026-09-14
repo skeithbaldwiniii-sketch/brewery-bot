@@ -442,3 +442,58 @@ def move_task_between_days(task, from_day, to_day):
         "source_row": source_row,
         "destination_row": destination_row,
     }
+
+def add_future_event(event_text):
+    """
+    Add an event to the Future Events section of the Board.
+
+    The event is appended after the existing Future Events entries.
+    """
+
+    if not event_text or not event_text.strip():
+        raise ValueError("Future event cannot be empty.")
+
+    event_text = event_text.strip()
+
+    worksheet = connect_to_sheet()
+    values = worksheet.col_values(1)
+
+    future_events_row = None
+
+    # Find the Future Events header.
+    for row_number, value in enumerate(values, start=1):
+        if value.strip().lower() == "future events":
+            future_events_row = row_number
+            break
+
+    if future_events_row is None:
+        raise RuntimeError(
+            "Could not find the 'Future Events' section on the Board."
+        )
+
+    # Find the last populated row in the Future Events section.
+    #
+    # This intentionally skips blank rows while finding
+    # the last populated event.
+    last_event_row = future_events_row
+
+    for row_number in range(
+        future_events_row + 1,
+        len(values) + 1,
+    ):
+        value = values[row_number - 1]
+
+        if value and value.strip():
+            last_event_row = row_number
+
+    new_row = last_event_row + 1
+
+    worksheet.update_acell(
+        f"A{new_row}",
+        event_text,
+    )
+
+    return {
+        "event": event_text,
+        "row": new_row,
+    }
