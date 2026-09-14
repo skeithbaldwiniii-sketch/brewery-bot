@@ -8,11 +8,11 @@ __pycache__/
 # Secrets / credentials
 .env
 credentials.json
+gmail_credentials.json
+gmail_token.json
 
-# Local databases
-data/*.db
-*.sqlite
-*.sqlite3
+# Runtime / generated data
+data/
 
 # OS files
 .DS_Store
@@ -21,8 +21,6 @@ Thumbs.db
 # IDE
 .vscode/
 
-data/*.db
-data/beer30_api_catalog.json
-
-gmail_credentials.json
-gmail_token.json
+# SQLite databases
+*.sqlite
+*.sqlite3
