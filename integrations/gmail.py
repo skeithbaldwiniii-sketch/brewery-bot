@@ -169,6 +169,74 @@ def get_email_body(message_id):
         "snippet": message.get("snippet", ""),
     }
 
+def get_email_attachments(message_id):
+    """Return attachment metadata for a Gmail message."""
+
+    service = get_gmail_service()
+
+    message = (
+        service.users()
+        .messages()
+        .get(
+            userId="me",
+            id=message_id,
+            format="full",
+        )
+        .execute()
+    )
+
+    attachments = []
+
+    def inspect_parts(parts):
+        for part in parts:
+            filename = part.get("filename", "")
+            body = part.get("body", {})
+
+            if filename:
+                attachments.append(
+                    {
+                        "filename": filename,
+                        "mime_type": part.get("mimeType", ""),
+                        "attachment_id": body.get("attachmentId"),
+                        "size": body.get("size", 0),
+                    }
+                )
+
+            child_parts = part.get("parts", [])
+
+            if child_parts:
+                inspect_parts(child_parts)
+
+    payload = message.get("payload", {})
+
+    inspect_parts(payload.get("parts", []))
+
+    return attachments
+
+def download_email_attachment(message_id, attachment_id):
+    """Download a Gmail attachment and return its decoded bytes."""
+
+    service = get_gmail_service()
+
+    attachment = (
+        service.users()
+        .messages()
+        .attachments()
+        .get(
+            userId="me",
+            messageId=message_id,
+            id=attachment_id,
+        )
+        .execute()
+    )
+
+    data = attachment.get("data")
+
+    if not data:
+        return b""
+
+    return base64.urlsafe_b64decode(data)
+
 def get_recent_emails(max_results=10):
     """Return recent emails from the inbox."""
 
