@@ -7,7 +7,7 @@ from reports.upserve_report import (
 )
 
 REPORT = (
-    Path(__file__).resolve().parents[1]
+    Path(__file__).resolve().parent
     / "pmix-report--2026-09-07-to-2026-09-13--vanish-brewery.csv"
 )
 

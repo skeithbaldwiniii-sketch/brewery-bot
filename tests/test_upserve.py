@@ -3,9 +3,9 @@ from pathlib import Path
 from integrations.upserve import parse_upserve_sales_report
 
 
-REPORT = Path(
-    r"C:\Users\skb3i\OneDrive\Desktop\brewery_bot"
-    r"\pmix-report--2026-09-07-to-2026-09-13--vanish-brewery.csv"
+REPORT = (
+    Path(__file__).resolve().parent
+    / "pmix-report--2026-09-07-to-2026-09-13--vanish-brewery.csv"
 )
 
 
