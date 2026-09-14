@@ -6,7 +6,6 @@ weekly product sales for B - Full and C - Full categories.
 """
 
 import csv
-import re
 from pathlib import Path
 
 from integrations.gmail import (
