@@ -1,4 +1,5 @@
 import os
+import time
 from datetime import date, datetime
 from typing import Any
 from knowledge.database import get_connection
@@ -20,6 +21,31 @@ BEER30_API_KEY = os.getenv("BEER30_API_KEY")
 class Beer30Error(Exception):
     """Raised when a Beer30 API request fails."""
 
+def _get_with_retry(
+    url: str,
+    *,
+    params: dict[str, Any],
+    json: dict[str, Any] | None = None,
+    timeout: int = 30,
+) -> requests.Response:
+    """GET from Beer30, retrying temporary connection failures."""
+
+    attempts = 3
+    delay_seconds = 5
+
+    for attempt in range(1, attempts + 1):
+        try:
+            return requests.get(
+                url,
+                params=params,
+                json=json,
+                timeout=timeout,
+            )
+        except (requests.ConnectionError, requests.Timeout):
+            if attempt == attempts:
+                raise
+
+            time.sleep(delay_seconds)
 
 def _request(
     endpoint: str,
@@ -44,15 +70,13 @@ def _request(
         request_params.update(params)
 
     try:
-        response = requests.get(
+        response = _get_with_retry(
             url,
             params=request_params,
             timeout=30,
         )
     except requests.RequestException as exc:
-        raise Beer30Error(
-            f"Unable to connect to Beer30: {exc}"
-        ) from exc
+        raise Beer30Error(f"Unable to connect to Beer30: {exc}") from exc
 
     if response.status_code == 429:
         raise Beer30Error(
@@ -93,15 +117,17 @@ def _export_data(query_name: str, type_: str | None = None) -> list[dict]:
     if type_:
         body["type"] = type_
 
-    response = requests.get(
-        url,
-        params={
-            "key": BEER30_API_KEY,
-            "format": "JSON",
-        },
-        json=body,
-        timeout=30,
-    )
+    try:
+        response = _get_with_retry(
+            url,
+            params={"key": BEER30_API_KEY, "format": "JSON"},
+            json=body,
+            timeout=30,
+        )
+    except requests.RequestException as exc:
+        raise Beer30Error(
+            f"Unable to connect to Beer30: {exc}"
+        ) from exc
 
     if response.status_code == 429:
         raise Beer30Error("Beer30 API rate limit exceeded.")
