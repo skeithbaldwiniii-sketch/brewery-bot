@@ -4,7 +4,7 @@
 
 Brews Springsteen is a Python-based brewery operations intelligence platform built to automate and simplify day-to-day brewery and cellar operations.
 
-The system connects an existing Google Sheets production workflow with a SQLite knowledge database, external brewery systems, and Slack, allowing brewery staff to access schedules, task information, beer knowledge, operational data, and reports through a natural-language interface.
+The system connects an existing Google Sheets production workflow with a SQLite knowledge database, external brewery systems, Gmail, and Slack, allowing brewery staff to access schedules, task information, beer knowledge, operational data, sales reports, and automated workflows through a natural-language interface.
 
 > Built as a real-world brewery automation project to reduce repetitive administrative work and make operational information easier to access.
 
@@ -64,7 +64,7 @@ SUMMARY: 7 completed / 4 remaining
 
 ### 💬 Slack Integration
 
-Brews Springsteen integrates with Slack using **Slack Bolt** and Socket Mode.
+Brews Springsteen integrates with Slack using **Slack Bolt**, Socket Mode, and the Slack API.
 
 Staff can mention the bot and ask questions directly from the brewery's existing communication environment.
 
@@ -73,6 +73,8 @@ Staff can mention the bot and ask questions directly from the brewery's existing
 ```
 
 Questions are routed through the appropriate intelligence and knowledge layers based on their content and the user's channel permissions.
+
+Slack can also serve as the destination for automated operational reports, including weekly Upserve sales reports.
 
 ---
 
@@ -122,7 +124,7 @@ returns the BJCP style information without replacing it with another organizatio
 
 ---
 
-#### BJCP Category Structure
+### BJCP Category Structure
 
 BJCP category structure is preserved in the source data rather than flattening categories into individual beer styles.
 
@@ -139,7 +141,7 @@ For example:
 └── White IPA
 ```
 
-`21B Specialty IPA` is treated as the parent competition category. The seven defined Specialty IPA types retain their own specifications rather than inheriting statistics from the parent category.
+`21B Specialty IPA` is treated as the parent competition category. The defined Specialty IPA types retain their own specifications rather than inheriting statistics from the parent category.
 
 This preserves source accuracy and allows questions about either the category or an individual subtype to be handled appropriately.
 
@@ -196,6 +198,11 @@ Current functionality includes:
 - Hop recommendations
 - Natural-language hop routing
 - Hop intelligence based on brewing characteristics
+- Hop product-form information
+- Hop aliases
+- Base-variety relationships
+- Alpha-acid information
+- Hop inventory infrastructure
 
 The goal is to allow questions such as:
 
@@ -218,11 +225,9 @@ The crosswalk records relationships such as:
 ```text
 BJCP:
 Festbier
-
         │
         │ equivalent_to
         ▼
-
 Brewers Association:
 German-Style Oktoberfest/Festbier
 ```
@@ -247,20 +252,20 @@ can return a combined overview using:
 
 ```text
 BJCP 2021
-     │
-     ├── Style description
-     ├── OG / FG
-     ├── ABV
-     ├── IBU
-     └── SRM
+    │
+    ├── Style description
+    ├── OG / FG
+    ├── ABV
+    ├── IBU
+    └── SRM
 
 Brewers Association 2024
-     │
-     ├── Style characteristics
-     ├── OG / FG
-     ├── Alcohol
-     ├── IBU
-     └── SRM
+    │
+    ├── Style characteristics
+    ├── OG / FG
+    ├── Alcohol
+    ├── IBU
+    └── SRM
 ```
 
 The sources remain explicitly separated.
@@ -283,7 +288,7 @@ Brewers Association-specific question
 BA source
 ```
 
-The current synthesis system is deterministic and does not require an LLM to generate the underlying style facts.
+The synthesis system is deterministic and does not require an LLM to generate the underlying style facts.
 
 ---
 
@@ -301,12 +306,131 @@ Current functionality includes:
 - Historical snapshot timestamps
 - Natural-language WIP queries through Slack
 - Beer30 inventory data retrieval and snapshot infrastructure
+- Connection and retry handling
+- Tank-status reporting
 
-The current Beer30 integration uses sandbox data for development and testing. The integration also includes retry and connection handling, tank-status reporting, and inventory snapshot infrastructure.
+The current Beer30 integration uses sandbox data for development and testing.
 
 Because sandbox data may not represent current brewery operations, Beer30 WIP responses identify the source report date and local retrieval timestamp rather than presenting the information as live operational data.
 
-Live production integration will be expanded once current API access and data are available.
+Live production integration will be expanded once current API access and production data are available.
+
+---
+
+## 📊 Upserve Sales Automation
+
+Brews Springsteen now includes an operational weekly Upserve sales-report workflow.
+
+The current workflow uses the existing brewery Gmail account rather than requiring a separate Upserve API integration.
+
+```text
+Upserve Weekly Email
+        │
+        ▼
+      Gmail
+        │
+        ▼
+Find Product Mix CSV
+        │
+        ▼
+Download Attachment
+        │
+        ▼
+Parse CSV
+        │
+        ▼
+Filter B - Full / C - Full
+        │
+        ▼
+Rank by Units Sold
+        │
+        ▼
+Format Weekly Report
+        │
+        ▼
+Slack Staff Channel
+        │
+        ▼
+Record Processed Report
+```
+
+### Report Filtering
+
+The system extracts products belonging to:
+
+```text
+B - Full
+C - Full
+```
+
+Products are ranked by the Upserve `Sold` field.
+
+The number of products is dynamic; the report does not depend on a fixed number of products.
+
+### Idempotency
+
+Successfully processed Upserve emails are recorded in SQLite.
+
+A report that has already been processed will not be sent to Slack again.
+
+This protects against:
+
+- Scheduler retries
+- Duplicate task executions
+- Manual reruns
+- Temporary infrastructure failures followed by retries
+
+The database stores the source Gmail message ID and reporting period.
+
+### Automated Runner
+
+The production runner is:
+
+```text
+scripts/run_upserve_weekly.py
+```
+
+The runner:
+
+1. Initializes the database.
+2. Searches Gmail for the latest matching Upserve report.
+3. Downloads the CSV attachment.
+4. Parses and ranks the report.
+5. Sends the formatted report to the brewery staff Slack channel.
+6. Records successful processing.
+7. Logs the result and any errors.
+
+### Windows Task Scheduler
+
+The Upserve runner is configured as a Windows Task Scheduler job.
+
+It executes:
+
+```powershell
+.venv\Scripts\python.exe -m scripts.run_upserve_weekly
+```
+
+The production task runs hourly on Mondays during the expected Upserve reporting window.
+
+Repeated execution is safe because of the SQLite idempotency check.
+
+### Logging
+
+Upserve execution logs are written to:
+
+```text
+data/logs/upserve_weekly.log
+```
+
+The runner records:
+
+- Start time
+- Processing status
+- Reporting period
+- Slack timestamp when a report is sent
+- Processing failures
+
+The scheduler is configured to return a failure exit code when processing fails so that Windows Task Scheduler can correctly identify failed executions.
 
 ---
 
@@ -326,6 +450,7 @@ It can distinguish between questions involving:
 - BJCP style information
 - Brewers Association style information
 - General style questions
+- Hop information and recommendations
 - Beer30 WIP information
 
 The goal is to allow brewery staff to ask questions naturally rather than learn a collection of application-specific commands.
@@ -340,13 +465,13 @@ Brews Springsteen includes a small personality feature that responds to requests
 @Brews Springsteen play me something
 ```
 
-The bot randomly selects a short Bruce Springsteen lyric snippet and song title, adding a bit of personality to the conversational interface.
+The bot can randomly select a short Bruce Springsteen lyric snippet and song title, adding a bit of personality to the conversational interface.
 
 ---
 
 ## 🗄️ Database Architecture
 
-SQLite provides structured local storage for brewery knowledge, operational data, production records, and external-system snapshots.
+SQLite provides structured local storage for brewery knowledge, operational data, production records, external-system snapshots, and workflow state.
 
 Current database components include:
 
@@ -360,11 +485,15 @@ fermentation_readings
 beer30_inventory
 beer30_sync_runs
 beer30_wip
+hop_varieties
+upserve_processed_reports
 ```
 
 The database architecture is intentionally modular.
 
 Source-specific beer-style information remains separated so that provenance can be preserved when multiple knowledge sources are used together.
+
+The `upserve_processed_reports` table provides persistent state for automated Upserve report processing and duplicate protection.
 
 ---
 
@@ -374,27 +503,39 @@ Source-specific beer-style information remains separated so that provenance can 
 
 - Google Sheets
 - Google Drive API
-- Slack
+- Gmail API
+- Slack API
 - Slack Bolt / Socket Mode
 - SQLite
 - Beer30 REST API
 - BJCP style data
 - Brewers Association style data
+- Windows Task Scheduler
+
+### Completed Automated Workflows
+
+- Google Sheets schedule intelligence
+- Google Sheets task completion
+- Daily operational reporting
+- End-of-day reporting
+- Beer30 WIP reporting
+- Upserve weekly sales reporting
+- Slack delivery of operational reports
 
 ### Planned / Pending Integrations
 
 - Beer30 live production integration
-- Upserve / Breadcrumb
-- Sales analytics
 - Additional brewery operational systems
+- Expanded sales analytics
 
-Planned sales analytics include:
+Potential sales analytics include:
 
 - Weekly beer and cider rankings
 - Monthly beer and cider rankings
 - Individual product performance
 - Packaged/canned product performance
-- Automated weekly sales reports
+- Historical sales trends
+- Automated weekly management reports
 - Automated monthly business intelligence reports
 
 ---
@@ -410,11 +551,13 @@ Planned sales analytics include:
 - SQLite
 - Google Sheets
 - JSON
+- CSV
 
 ### APIs & Integrations
 
 - Google Sheets API
 - Google Drive API
+- Gmail API
 - Slack API
 - Slack Bolt / Socket Mode
 - Beer30 REST API
@@ -423,6 +566,7 @@ Planned sales analytics include:
 
 - `gspread`
 - `google-auth`
+- `google-api-python-client`
 - `python-dotenv`
 - `requests`
 - `slack-bolt`
@@ -435,6 +579,7 @@ Planned sales analytics include:
 - Python virtual environments
 - Git
 - GitHub
+- Windows Task Scheduler
 
 ---
 
@@ -444,40 +589,40 @@ Planned sales analytics include:
 brewery_bot/
 │
 ├── integrations/
-│   ├── __init__.py
 │   ├── board_reader.py
 │   ├── google_sheets.py
+│   ├── gmail.py
 │   ├── beer30.py
-│   └── slack.py
+│   ├── slack.py
+│   └── upserve.py
 │
 ├── intelligence/
 │   ├── task_queries.py
+│   ├── schedule_commands.py
 │   ├── beer30_queries.py
-│   └── springsteen.py
+│   └── ...
 │
 ├── knowledge/
-│   ├── ask.py
 │   ├── database.py
 │   ├── encyclopedia.py
 │   ├── beer_queries.py
+│   ├── upserve.py
+│   ├── hop_intelligence.py
+│   ├── hop_queries.py
+│   ├── hop_comparison.py
 │   ├── style_crosswalk.py
 │   ├── style_synthesis.py
-│   ├── import_styles.py
-│   ├── seed_encyclopedia.py
-│   ├── seed_styles.py
-│   └── data/
-│       ├── style_crosswalk.json
-│       ├── BJCP style data
-│       └── BA style data
+│   └── ...
 │
 ├── reports/
-│   ├── __init__.py
 │   ├── daily_report.py
 │   ├── daily_tasks.py
 │   ├── eod_report.py
-│   └── schedule.py
+│   ├── schedule.py
+│   └── upserve_report.py
 │
 ├── scripts/
+│   ├── run_upserve_weekly.py
 │   ├── sync_beer30_inventory.py
 │   └── data import / processing scripts
 │
@@ -487,15 +632,16 @@ brewery_bot/
 │   ├── test_ba_style_formatting.py
 │   ├── test_style_crosswalk.py
 │   ├── test_style_synthesis.py
-│   ├── test_slack_build_answer.py
+│   ├── test_upserve.py
+│   ├── test_upserve_processing.py
+│   ├── test_upserve_idempotency.py
+│   ├── test_upserve_report.py
+│   ├── test_run_upserve_weekly.py
 │   └── ...
 │
-├── main.py
-├── eod_main.py
-├── daily_report_main.py
+├── styles.json
 ├── requirements.txt
-├── run_daily_report.bat
-├── run_eod_report.bat
+├── pytest.ini
 ├── .gitignore
 └── README.md
 ```
@@ -526,28 +672,27 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-### 4. Configure credentials
+### 4. Configure Credentials
 
 The application uses environment variables and local credential files for external services.
 
-Create a `.env` file containing the required Slack credentials:
+Create a `.env` file containing the required Slack credentials and other environment-specific configuration.
+
+Example:
 
 ```text
 SLACK_BOT_TOKEN=your_bot_token
 SLACK_APP_TOKEN=your_app_token
+BREWS_STAFF_CHANNEL_ID=your_staff_channel_id
 ```
 
 Beer30 credentials should also be stored locally rather than committed to source control.
 
-Place Google service-account credentials in:
-
-```text
-credentials.json
-```
+Google credentials should be stored locally in the appropriate credential file.
 
 Credentials and private operational data are intentionally excluded from the public repository.
 
-### 5. Initialize the database
+### 5. Initialize the Database
 
 ```powershell
 python -m knowledge.database
@@ -583,18 +728,40 @@ python main.py
 python eod_main.py
 ```
 
-Windows batch files are also included for scheduled execution:
+### Upserve Weekly Report
 
-```text
-run_daily_report.bat
-run_eod_report.bat
+```powershell
+python -m scripts.run_upserve_weekly
 ```
+
+The Upserve runner can be executed manually at any time. If the latest report has already been processed, the runner exits without sending another Slack message.
 
 ---
 
 ## 🧪 Testing
 
-The project uses `pytest` for automated testing. The current regression suite contains **78 tests** covering operational workflows, integrations, beer knowledge, hop intelligence, style synthesis, routing, and task completion.
+The project uses `pytest` for automated testing.
+
+The current regression suite contains **97 tests** covering:
+
+- Schedule and task workflows
+- Task completion
+- Slack integration and routing
+- Daily reporting
+- Tank status
+- Beer30 integration
+- Beer knowledge
+- BJCP style lookup and routing
+- Brewers Association style lookup and routing
+- BJCP/BA crosswalking
+- Style synthesis
+- Hop intelligence
+- Hop comparisons and recommendations
+- Upserve parsing
+- Upserve report formatting
+- Upserve processing
+- Upserve idempotency
+- Upserve scheduled execution
 
 Run the complete test suite with:
 
@@ -602,21 +769,17 @@ Run the complete test suite with:
 pytest
 ```
 
-Targeted tests can be run during development:
+Current baseline:
 
-```powershell
-pytest tests/test_ba_question_routing.py tests/test_style_synthesis.py tests/test_slack_build_answer.py
+```text
+97 passed
 ```
 
-The BJCP/BA style synthesis feature currently has regression coverage for:
+Targeted Upserve tests:
 
-- BA style lookup
-- BA style formatting
-- BA-specific question routing
-- BJCP-specific question routing
-- BJCP/BA style crosswalks
-- General style synthesis
-- Slack answer generation
+```powershell
+pytest tests/test_upserve_processing.py tests/test_run_upserve_weekly.py
+```
 
 ---
 
@@ -624,7 +787,7 @@ The BJCP/BA style synthesis feature currently has regression coverage for:
 
 Private credentials and operational data are intentionally excluded from version control.
 
-The repository ignores:
+The repository ignores sensitive/local files such as:
 
 ```text
 .env
@@ -669,12 +832,19 @@ The project currently has operational components for:
 - Hop comparisons and recommendations
 - Beer30 sandbox integration
 - Beer30 WIP and inventory infrastructure
+- Upserve weekly sales automation
+- Gmail-based report ingestion
+- Automated Slack sales reporting
+- Persistent report idempotency
+- Windows Task Scheduler execution
 
-The Beer30 live-data expansion is currently pending access to current production data.
+### Current Development Priorities
 
-Upserve / Breadcrumb integration is pending API information and access.
+Beer30 live-data expansion remains dependent on access to current production data.
 
-The project is being developed incrementally toward a broader brewery operations and analytics platform.
+The Upserve weekly reporting workflow is operational and has been tested through the complete Gmail → CSV → parsing → Slack → SQLite pipeline.
+
+The broader project continues toward a centralized brewery operations and analytics platform.
 
 ---
 
@@ -686,11 +856,11 @@ Potential future capabilities include:
 - Style aliases and alternate terminology
 - Additional beer knowledge sources
 - Beer30 live production integration
-- Upserve / Breadcrumb sales integration
 - Production and batch tracking
 - Fermentation analytics
 - Inventory analysis
 - Beer and cider sales rankings
+- Historical sales analytics
 - Packaged product performance
 - Weekly management reports
 - Monthly business intelligence reports
@@ -698,6 +868,7 @@ Potential future capabilities include:
 - Historical production analytics
 - Natural-language access to brewery data
 - Additional brewery-system integrations
+- Cloud-hosted automation
 
 ---
 
@@ -722,5 +893,34 @@ The project provides hands-on experience with:
 - Python application architecture
 - Real-world system integration
 - Automated testing
+- Workflow automation
+- External-system integration
 
 The long-term goal is to create a centralized brewery operations assistant capable of connecting **production, cellar operations, inventory, sales, scheduling, and brewery knowledge through a single interface.**
+
+---
+
+## 🍺 The Goal
+
+```text
+Production
+    │
+Cellar ───────┐
+    │         │
+Inventory ────┤
+    │         │
+Sales ────────┤
+    │         │
+Scheduling ───┤
+    │         │
+Knowledge ────┘
+       │
+       ▼
+Brews Springsteen
+       │
+       ▼
+One conversational interface
+for brewery operations
+```
+
+**Brew beer. Let Springsteen handle the paperwork.** 🍺
