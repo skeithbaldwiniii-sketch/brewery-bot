@@ -1,5 +1,6 @@
 import os
 import re
+import threading
 from datetime import datetime, timedelta
 import html
 
@@ -52,6 +53,7 @@ from intelligence.access_control import (
     has_capability,
     access_denied_message,
 )
+from intelligence.karma import record_request
 from reports.schedule import format_schedule
 
 
@@ -252,6 +254,7 @@ def handle_tomorrow_question(question):
 
 
 
+
 def is_schedule_question(question):
     """
     Detect whether a Slack question is asking about
@@ -376,13 +379,22 @@ def debug_message_event(body, say, logger):
     if not text:
         return
 
+    karma = record_request(
+        user_id,
+        text,
+    )
+
     answer = handle_future_event_beer_response(
         user_id,
         text,
     )
 
     if answer:
-        say(answer)
+        send_delayed_response(
+            say,
+            answer,
+            karma["response_delay"],
+        )
 @app.event("app_mention")
 def handle_mention(event, say):
     """Respond when someone mentions Brews Springsteen."""
@@ -404,13 +416,25 @@ def handle_mention(event, say):
 
     if has_pending_future_event(user_id):
 
+        if not question:
+            return
+
+        karma = record_request(
+            user_id,
+            question,
+        )
+
         answer = handle_future_event_beer_response(
             user_id,
             question,
         )
 
         if answer:
-            say(answer)
+            send_delayed_response(
+                say,
+                answer,
+                karma["response_delay"],
+            )
 
         return
 
@@ -419,11 +443,19 @@ def handle_mention(event, say):
     print(f"Channel: {channel_id}")
     print(f"User: {user_id}")
 
-        # ---------------------------------------------
+    # ---------------------------------------------
     # PENDING BEER STYLE SELECTION
     # ---------------------------------------------
 
     if user_id in pending_style_selections:
+
+        if not question:
+            return
+
+        karma = record_request(
+            user_id,
+            question,
+        )
 
         answer = handle_style_selection(
             user_id,
@@ -431,8 +463,13 @@ def handle_mention(event, say):
         )
 
         if answer:
-            say(answer)
-            return
+            send_delayed_response(
+                say,
+                answer,
+                karma["response_delay"],
+            )
+
+        return
 
     if not question:
         say(
@@ -441,7 +478,21 @@ def handle_mention(event, say):
         )
         return
 
-        # ---------------------------------------------
+    karma = record_request(
+        user_id,
+        question,
+    )
+
+    response_delay = karma["response_delay"]
+
+    def karma_say(response):
+        send_delayed_response(
+            say,
+            response,
+            response_delay,
+        )
+
+    # ---------------------------------------------
     # FUTURE EVENT REQUESTS
     # ---------------------------------------------
 
@@ -451,7 +502,7 @@ def handle_mention(event, say):
             channel_id,
             FUTURE_EVENTS_WRITE,
         ):
-            say(access_denied_message(FUTURE_EVENTS_WRITE))
+            karma_say(access_denied_message(FUTURE_EVENTS_WRITE))
             return
 
         answer = handle_future_event_request(
@@ -460,25 +511,25 @@ def handle_mention(event, say):
         )
 
         if answer:
-            say(answer)
+            karma_say(answer)
 
         return
-       # ---------------------------------------------
+    # ---------------------------------------------
     # TASK COMPLETION
     # ---------------------------------------------
 
     if is_task_completion_request(question):
 
         if not require_capability(channel_id, SCHEDULE):
-            say(access_denied_message(SCHEDULE))
+            karma_say(access_denied_message(SCHEDULE))
             return
 
         answer = handle_schedule_question(question)
 
         if answer:
-            say(answer)
+            karma_say(answer)
         else:
-            say("I couldn't mark that task as completed.")
+            karma_say("I couldn't mark that task as completed.")
 
         return
 
@@ -488,14 +539,14 @@ def handle_mention(event, say):
 
     if is_schedule_question(question):
         if not require_capability(channel_id, SCHEDULE):
-            say(access_denied_message(SCHEDULE))
+            karma_say(access_denied_message(SCHEDULE))
             return
 
         answer = handle_schedule_question(question)
         if answer:
-            say(answer)
+            karma_say(answer)
         else:
-            say("I couldn't find a schedule answer for that question.")
+            karma_say("I couldn't find a schedule answer for that question.")
         return
 
     # ---------------------------------------------
@@ -505,15 +556,15 @@ def handle_mention(event, say):
     if is_wip_question(question):
 
         if not require_capability(channel_id, BEER30):
-            say(access_denied_message(BEER30))
+            karma_say(access_denied_message(BEER30))
             return
 
         answer = answer_wip_question(question)
 
         if answer:
-            say(answer)
+            karma_say(answer)
         else:
-            say("I couldn't find an answer to that Beer30 question.")
+            karma_say("I couldn't find an answer to that Beer30 question.")
 
         return
 
@@ -524,15 +575,15 @@ def handle_mention(event, say):
     if is_email_question(question):
 
         if not require_capability(channel_id, EMAIL):
-            say(access_denied_message(EMAIL))
+            karma_say(access_denied_message(EMAIL))
             return
 
         answer = answer_email_question(question)
 
         if answer:
-            say(answer)
+            karma_say(answer)
         else:
-            say("I couldn't find an answer to that email question.")
+            karma_say("I couldn't find an answer to that email question.")
 
         return
 
@@ -543,7 +594,7 @@ def handle_mention(event, say):
     if is_springsteen_request(question):
 
         if not require_capability(channel_id, SPRINGSTEEN):
-            say(access_denied_message(SPRINGSTEEN))
+            karma_say(access_denied_message(SPRINGSTEEN))
             return
 
         mood = get_springsteen_mood(question)
@@ -551,7 +602,7 @@ def handle_mention(event, say):
         response = play_springsteen(mood)
 
         if response:
-            say(response)
+            karma_say(response)
 
         return
 
@@ -562,19 +613,19 @@ def handle_mention(event, say):
     if is_schedule_write_request(question):
 
         if not require_capability(channel_id, SCHEDULE_WRITE):
-            say(access_denied_message(SCHEDULE_WRITE))
+            karma_say(access_denied_message(SCHEDULE_WRITE))
             return
 
         handle_schedule_write_question(
             question,
             user_id,
             channel_id,
-            say,
+            karma_say,
         )
 
         return
 
-     # ---------------------------------------------
+    # ---------------------------------------------
     # BREWERY BEER KNOWLEDGE
     # ---------------------------------------------
 
@@ -586,10 +637,10 @@ def handle_mention(event, say):
         answer = answer_brewery_beer_question(question)
 
         if answer:
-            say(answer)
+            karma_say(answer)
             return
 
-        # ---------------------------------------------------------
+    # ---------------------------------------------------------
     # BEER STYLE FAMILY SELECTION
     # ---------------------------------------------------------
 
@@ -617,7 +668,7 @@ def handle_mention(event, say):
 
             response += "\nReply with a number to see the description."
 
-            say(response)
+            karma_say(response)
             return
 
     # ---------------------------------------------
@@ -629,14 +680,14 @@ def handle_mention(event, say):
         answer = build_answer(question)
 
         if answer:
-            say(answer)
+            karma_say(answer)
             return
 
     # ---------------------------------------------
     # UNKNOWN / UNAUTHORIZED
     # ---------------------------------------------
 
-    say(
+    karma_say(
         "I don't have access to brewery information in this channel."
     )
 # -------------------------------------------------

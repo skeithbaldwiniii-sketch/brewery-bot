@@ -294,6 +294,22 @@ def initialize_database():
         )
     """)
 
+    # ---------------------------------------------------------
+    # USER KARMA
+    # ---------------------------------------------------------
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS karma_users (
+            user_id TEXT PRIMARY KEY,
+            karma_score INTEGER NOT NULL DEFAULT 0,
+            consecutive_no_please INTEGER NOT NULL DEFAULT 0,
+            total_requests INTEGER NOT NULL DEFAULT 0,
+            total_please_requests INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
     connection.commit()
     connection.close()
 
