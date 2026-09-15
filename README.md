@@ -78,6 +78,45 @@ Slack can also serve as the destination for automated operational reports, inclu
 
 ---
 
+
+## ⚖️ Karma Score
+
+Brews Springsteen includes a lightweight **Karma Score** system that adds a little personality to Slack interactions while keeping response accuracy unchanged.
+
+Karma tracks whether users include **"please"** in their requests and uses the result to control response timing.
+
+Current functionality includes:
+
+- Persistent per-user Karma records in SQLite
+- Case-insensitive detection of standalone `please`
+- Consecutive no-please streak tracking
+- Current Karma score tracking
+- Total request and polite-request counts
+- Courtesy-rate calculation
+- Response delays based on the current no-please streak
+- A maximum response delay of 10 seconds
+- Saying `please` resets the current penalty and streak
+- Karma behavior is separated from the Slack integration logic
+
+The delay is intentionally playful rather than punitive: **every request is still answered correctly**, while repeated requests without "please" gradually increase the response delay.
+
+### Karma Inspector
+
+A private test-channel **Karma Inspector** allows authorized testing of Karma state without affecting the Karma statistics themselves.
+
+Supported commands:
+
+```text
+karma
+karma me
+karma @user
+```
+
+The leaderboard displays current Karma, no-please streak, response delay, and courtesy rate. Individual Karma details include the same current state plus total request counts and last activity.
+
+Karma Inspector commands are restricted to the private development/test channel and do not create additional Karma events or incur Karma-based response delays.
+
+
 ## 🍺 Beer Knowledge System
 
 Brews Springsteen includes a structured SQLite-based beer knowledge system designed to keep different sources of beer information separate while allowing them to work together.
@@ -452,6 +491,7 @@ It can distinguish between questions involving:
 - General style questions
 - Hop information and recommendations
 - Beer30 WIP information
+- Karma Score and Karma Inspector commands
 
 The goal is to allow brewery staff to ask questions naturally rather than learn a collection of application-specific commands.
 
@@ -486,6 +526,7 @@ beer30_inventory
 beer30_sync_runs
 beer30_wip
 hop_varieties
+karma_users
 upserve_processed_reports
 ```
 
@@ -507,6 +548,7 @@ The `upserve_processed_reports` table provides persistent state for automated Up
 - Slack API
 - Slack Bolt / Socket Mode
 - SQLite
+- Karma Score / Karma Inspector
 - Beer30 REST API
 - BJCP style data
 - Brewers Association style data
@@ -600,6 +642,7 @@ brewery_bot/
 │   ├── task_queries.py
 │   ├── schedule_commands.py
 │   ├── beer30_queries.py
+│   ├── karma.py
 │   └── ...
 │
 ├── knowledge/
@@ -630,6 +673,10 @@ brewery_bot/
 │   ├── test_ba_question_routing.py
 │   ├── test_ba_style_lookup.py
 │   ├── test_ba_style_formatting.py
+│   ├── test_karma.py
+│   ├── test_karma_inspector.py
+│   ├── test_slack_karma.py
+│   ├── test_slack_karma_inspector.py
 │   ├── test_style_crosswalk.py
 │   ├── test_style_synthesis.py
 │   ├── test_upserve.py
@@ -742,7 +789,7 @@ The Upserve runner can be executed manually at any time. If the latest report ha
 
 The project uses `pytest` for automated testing.
 
-The current regression suite contains **97 tests** covering:
+The current regression suite contains **153 tests** covering:
 
 - Schedule and task workflows
 - Task completion
@@ -757,6 +804,9 @@ The current regression suite contains **97 tests** covering:
 - Style synthesis
 - Hop intelligence
 - Hop comparisons and recommendations
+- Karma Score behavior
+- Karma persistence and state tracking
+- Karma Inspector formatting and routing
 - Upserve parsing
 - Upserve report formatting
 - Upserve processing
@@ -772,8 +822,10 @@ pytest
 Current baseline:
 
 ```text
-97 passed
+153 passed
 ```
+
+The latest full regression run completed successfully with all tests passing.
 
 Targeted Upserve tests:
 
@@ -836,6 +888,7 @@ The project currently has operational components for:
 - Gmail-based report ingestion
 - Automated Slack sales reporting
 - Persistent report idempotency
+- Karma Score and Karma Inspector
 - Windows Task Scheduler execution
 
 ### Current Development Priorities
@@ -844,7 +897,7 @@ Beer30 live-data expansion remains dependent on access to current production dat
 
 The Upserve weekly reporting workflow is operational and has been tested through the complete Gmail → CSV → parsing → Slack → SQLite pipeline.
 
-The broader project continues toward a centralized brewery operations and analytics platform.
+The Karma Score milestone is implemented, tested, and integrated with Slack. The broader project continues toward a centralized brewery operations and analytics platform.
 
 ---
 
