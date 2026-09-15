@@ -23,6 +23,11 @@ from intelligence.beer30_queries import (
     is_wip_question,
     answer_wip_question,
 )
+from intelligence.brew_planning import (
+    parse_brew_request,
+    check_brew_feasibility,
+    format_brew_plan_response,
+)
 from intelligence.springsteen import (
     is_springsteen_request,
     get_springsteen_mood,
@@ -80,6 +85,34 @@ pending_style_selections = {}
 
 
 # -------------------------------------------------
+# KARMA RESPONSE HANDLING
+# -------------------------------------------------
+
+def send_delayed_response(say, response, delay):
+    """
+    Send a Slack response immediately or after the
+    specified Karma delay.
+
+    The delay runs in a background timer so one user's
+    Karma penalty does not block other Slack requests.
+    """
+    if not response:
+        return
+
+    if delay <= 0:
+        say(response)
+        return
+
+    timer = threading.Timer(
+        delay,
+        say,
+        args=(response,),
+    )
+
+    timer.daemon = True
+    timer.start()
+
+# -------------------------------------------------
 # SLACK MESSAGE SENDING
 # -------------------------------------------------
 
@@ -94,11 +127,41 @@ def send_message(message):
     client = WebClient(token=SLACK_BOT_TOKEN)
 
     response = client.chat_postMessage(
-        channel=SLACK_CHANNEL_ID,
+        channel=PRODUCTION_CHANNEL_ID,
         text=message,
     )
 
     return response
+
+def send_message_to_channel(message, channel_id):
+    """Send a message to a specific Slack channel."""
+
+    if not SLACK_BOT_TOKEN:
+        raise RuntimeError(
+            "SLACK_BOT_TOKEN was not found in the .env file."
+        )
+
+    if not channel_id:
+        raise RuntimeError(
+            "Slack channel ID was not provided."
+        )
+
+    client = WebClient(token=SLACK_BOT_TOKEN)
+
+    response = client.chat_postMessage(
+        channel=channel_id,
+        text=message,
+    )
+
+    return response
+
+def send_staff_message(message):
+    """Send a message to the brewery staff channel."""
+
+    return send_message_to_channel(
+        message,
+        STAFF_CHANNEL_ID,
+    )
 
 
 # -------------------------------------------------
@@ -585,6 +648,38 @@ def handle_mention(event, say):
         if answer:
             karma_say(answer)
 
+        return
+
+    # ---------------------------------------------
+    # BREW PLANNING
+    # ---------------------------------------------
+
+    brew_request = parse_brew_request(question)
+
+    if brew_request["is_brew_request"]:
+        beer_names = brew_request["beers"]
+
+        if not beer_names:
+            karma_say(
+                "Tell me which beer or beers you'd like to brew."
+            )
+            return
+
+        if not require_capability(channel_id, BEER30):
+            karma_say(access_denied_message(BEER30))
+            return
+
+        try:
+            result = check_brew_feasibility(beer_names)
+            answer = format_brew_plan_response(result)
+        except Exception as exc:
+            print(f"Brew planning error: {exc}")
+            answer = (
+                "I ran into a problem checking the brew plan "
+                "against Beer30."
+            )
+
+        karma_say(answer)
         return
     # ---------------------------------------------
     # TASK COMPLETION
