@@ -53,7 +53,11 @@ from intelligence.access_control import (
     has_capability,
     access_denied_message,
 )
-from intelligence.karma import record_request
+from intelligence.karma import (
+    record_request,
+    format_karma_details,
+    format_karma_leaderboard,
+)
 from reports.schedule import format_schedule
 
 
@@ -301,6 +305,45 @@ def is_schedule_write_request(question):
         or is_schedule_add_request(question)
     )
 
+def handle_karma_command(user_id, question, channel_id):
+    """
+    Handle Karma Inspector commands.
+
+    Karma inspection is restricted to the private test channel.
+
+    Supported commands:
+
+        karma
+        karma me
+        karma @user
+    """
+
+    if channel_id != TEST_CHANNEL_ID:
+        return (
+            "Karma Inspector is only available in the private "
+            "test channel."
+        )
+
+    cleaned = question.strip()
+
+    if cleaned.lower() == "karma":
+        return format_karma_leaderboard()
+
+    if cleaned.lower() == "karma me":
+        return format_karma_details(user_id)
+
+    match = re.fullmatch(
+        r"karma\s+<@([A-Z0-9_]+)>",
+        cleaned,
+        flags=re.IGNORECASE,
+    )
+
+    if match:
+        target_user_id = match.group(1)
+        return format_karma_details(target_user_id)
+
+    return None
+
 # -------------------------------------------------
 # SCHEDULE QUESTION ROUTER
 # -------------------------------------------------
@@ -408,6 +451,7 @@ def handle_mention(event, say):
         r"<@[^>]+>",
         "",
         text,
+        count=1,
     ).strip()
 
     # ---------------------------------------------
@@ -476,6 +520,34 @@ def handle_mention(event, say):
             "I'm listening. Ask me something about beer, "
             "the brewery, or the schedule."
         )
+        return
+
+    # ---------------------------------------------
+    # KARMA INSPECTOR
+    # ---------------------------------------------
+
+    karma_command = question.strip().lower()
+
+    is_karma_command = (
+        karma_command == "karma"
+        or karma_command == "karma me"
+        or re.fullmatch(
+            r"karma\s+<@[A-Z0-9_]+>",
+            question.strip(),
+            flags=re.IGNORECASE,
+        ) is not None
+    )
+
+    if is_karma_command:
+        karma_answer = handle_karma_command(
+            user_id,
+            question,
+            channel_id,
+        )
+
+        if karma_answer:
+            say(karma_answer)
+
         return
 
     karma = record_request(

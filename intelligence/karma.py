@@ -98,6 +98,121 @@ def get_karma(user_id):
     finally:
         connection.close()
 
+def get_karma_leaderboard():
+    """
+    Return all users with Karma records, ordered by current
+    Karma score from best to worst.
+    """
+    connection = get_connection()
+
+    try:
+        rows = connection.execute(
+            """
+            SELECT
+                user_id,
+                karma_score,
+                consecutive_no_please,
+                total_requests,
+                total_please_requests,
+                updated_at
+            FROM karma_users
+            ORDER BY karma_score DESC, user_id ASC
+            """
+        ).fetchall()
+
+        return [dict(row) for row in rows]
+
+    finally:
+        connection.close()
+
+
+def format_karma_record(karma, rank=None):
+    """
+    Format a single Karma record for Slack.
+    """
+
+    total_requests = karma["total_requests"]
+    total_please = karma["total_please_requests"]
+
+    if total_requests:
+        courtesy_rate = (
+            total_please / total_requests
+        ) * 100
+    else:
+        courtesy_rate = 0
+
+    prefix = ""
+
+    if rank is not None:
+        prefix = f"{rank}. "
+
+    return (
+        f"{prefix}<@{karma['user_id']}> — "
+        f"Karma: {karma['karma_score']} | "
+        f"Streak: {karma['consecutive_no_please']} | "
+        f"Delay: {get_response_delay(karma['user_id'])}s | "
+        f"Courtesy: {courtesy_rate:.0f}% "
+        f"({total_please}/{total_requests})"
+    )
+
+
+def format_karma_leaderboard():
+    """
+    Format the current Karma leaderboard for Slack.
+    """
+
+    leaderboard = get_karma_leaderboard()
+
+    if not leaderboard:
+        return (
+            "*Karma Score Leaderboard*\n\n"
+            "No Karma records yet."
+        )
+
+    lines = [
+        "*Karma Score Leaderboard*",
+        "",
+    ]
+
+    for rank, karma in enumerate(leaderboard, start=1):
+        lines.append(
+            format_karma_record(
+                karma,
+                rank=rank,
+            )
+        )
+
+    return "\n".join(lines)
+
+
+def format_karma_details(user_id):
+    """
+    Format detailed Karma information for one user.
+    """
+
+    karma = get_karma(user_id)
+
+    total_requests = karma["total_requests"]
+    total_please = karma["total_please_requests"]
+
+    if total_requests:
+        courtesy_rate = (
+            total_please / total_requests
+        ) * 100
+    else:
+        courtesy_rate = 0
+
+    return (
+        f"*Karma for <@{user_id}>*\n\n"
+        f"Karma Score: {karma['karma_score']}\n"
+        f"No-please streak: {karma['consecutive_no_please']}\n"
+        f"Current response delay: "
+        f"{get_response_delay(user_id)} seconds\n"
+        f"Total requests: {total_requests}\n"
+        f"Requests with please: {total_please}\n"
+        f"Courtesy rate: {courtesy_rate:.0f}%\n"
+        f"Last activity: {karma['updated_at']}"
+    )
 
 def get_response_delay(user_id):
     """
