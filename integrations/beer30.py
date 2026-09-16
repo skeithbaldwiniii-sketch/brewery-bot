@@ -153,6 +153,45 @@ def _export_data(query_name: str, type_: str | None = None) -> list[dict]:
 
     return []
 
+def get_inventory_lots(
+    item_type: str,
+    item_id: str,
+) -> dict[str, Any]:
+    """
+    Retrieve Beer30 inventory lots for a specific item.
+
+    Beer30 requires both the inventory item type and
+    the item's historyUnique ID.
+    """
+
+    valid_types = {
+        "grains",
+        "hops",
+        "adjuncts",
+        "canning",
+        "bottling",
+        "kegging",
+    }
+
+    item_type = item_type.lower().strip()
+
+    if item_type not in valid_types:
+        raise ValueError(
+            f"Invalid Beer30 inventory type '{item_type}'. "
+            f"Valid types: {', '.join(sorted(valid_types))}"
+        )
+
+    if not str(item_id).strip():
+        raise ValueError("Beer30 inventory item ID cannot be empty.")
+
+    return _request(
+        "inventory/items/lots",
+        params={
+            "type": item_type,
+            "id": str(item_id).strip(),
+        },
+    )
+
 def get_inventory(item_type: str) -> dict[str, Any] | list[Any] | None:
     """
     Retrieve Beer30 inventory.

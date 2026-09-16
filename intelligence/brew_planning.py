@@ -9,8 +9,11 @@ import re
 from collections import defaultdict
 from typing import Any
 
-from integrations.beer30 import _export_data, get_inventory
-
+from integrations.beer30 import (
+    _export_data,
+    get_inventory,
+    get_inventory_lots,
+)
 RECIPE_EXPORT_NAME = "TableExportWithCustomFields"
 
 # Beer30 recipe slots.
@@ -123,6 +126,114 @@ def normalize_inventory(
                 ).strip() == "1",
                 "inventory_known": quantity_value is not None,
                 "history_unique": record.get("historyUnique"),
+            }
+        )
+
+    return normalized
+
+def get_adjunct_inventory(
+    requirements: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """
+    Retrieve current Beer30 inventory for adjuncts required by a brew plan.
+
+    Beer30's adjunct inventory endpoint provides the item catalog but does
+    not provide current quantities. Current quantities are calculated from
+    the item's active lots:
+
+        available = AddAmount - TotalDepleted
+
+    Only adjuncts actually required by the brew plan are queried to avoid
+    unnecessary Beer30 API requests.
+    """
+    required_adjuncts = {
+        _normalize_name(requirement["name"])
+        for requirement in requirements
+        if requirement["category"] == "adjunct"
+    }
+
+    if not required_adjuncts:
+        return []
+
+    master_response = get_inventory("adjuncts")
+    master_inventory = normalize_inventory(
+        master_response,
+        "adjunct",
+    )
+
+    normalized: list[dict[str, Any]] = []
+
+    for item in master_inventory:
+        if item["normalized_name"] not in required_adjuncts:
+            continue
+
+        item_id = item.get("history_unique")
+
+        if not item_id:
+            normalized.append(
+                {
+                    **item,
+                    "quantity": None,
+                    "inventory_known": False,
+                }
+            )
+            continue
+
+        try:
+            lots_response = get_inventory_lots(
+                "adjuncts",
+                str(item_id),
+            )
+        except Exception:
+            normalized.append(
+                {
+                    **item,
+                    "quantity": None,
+                    "inventory_known": False,
+                }
+            )
+            continue
+
+        lots = lots_response.get("inventory", [])
+
+        available_quantity = 0.0
+        unit = item["unit"]
+
+        for lot in lots:
+            if str(lot.get("Archived") or "0").strip() == "1":
+                continue
+
+            add_amount = lot.get("AddAmount")
+            total_depleted = lot.get("TotalDepleted")
+
+            if add_amount is None:
+                continue
+
+            available_quantity += (
+                _to_float(add_amount)
+                - _to_float(total_depleted)
+            )
+
+            lot_unit = str(
+                lot.get("MeasurementUnits") or ""
+            ).strip()
+
+            if lot_unit:
+                unit = _canonical_unit(
+                    lot_unit,
+                    category="adjunct",
+                )
+
+        normalized.append(
+            {
+                "name": item["name"],
+                "normalized_name": item["normalized_name"],
+                "category": "adjunct",
+                "quantity": max(available_quantity, 0.0),
+                "unit": unit,
+                "archived": False,
+                "inventory_known": True,
+                "history_unique": item_id,
             }
         )
 
@@ -650,6 +761,12 @@ def check_brew_feasibility(
     }
 
     for category, beer30_category in inventory_categories.items():
+        if category == "adjunct":
+            inventory.extend(
+                get_adjunct_inventory(requirements)
+            )
+            continue
+
         response = get_inventory(beer30_category)
         inventory.extend(
             normalize_inventory(response, category)

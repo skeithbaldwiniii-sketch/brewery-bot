@@ -709,6 +709,9 @@ def test_check_brew_feasibility_detects_unknown_adjunct_inventory(
 
         return {"inventory": []}
 
+    def fake_inventory_lots(item_type, item_id):
+        raise RuntimeError("Beer30 lot inventory unavailable")
+
     monkeypatch.setattr(
         "intelligence.brew_planning.get_recipe_export",
         fake_recipe_export,
@@ -717,6 +720,11 @@ def test_check_brew_feasibility_detects_unknown_adjunct_inventory(
     monkeypatch.setattr(
         "intelligence.brew_planning.get_inventory",
         fake_inventory,
+    )
+
+    monkeypatch.setattr(
+        "intelligence.brew_planning.get_inventory_lots",
+        fake_inventory_lots,
     )
 
     result = check_brew_feasibility(["Beer A"])
@@ -924,3 +932,151 @@ def test_format_brew_plan_response_with_missing_recipe():
 
     assert "Definitely Not A Beer" in answer
     assert "recipe" in answer.lower()
+
+def test_get_adjunct_inventory_calculates_available_quantity(monkeypatch):
+    from intelligence import brew_planning
+
+    requirement = {
+        "name": "Citra Incognito",
+        "category": "adjunct",
+        "quantity": 0.5,
+        "unit": "kg",
+    }
+
+    monkeypatch.setattr(
+        brew_planning,
+        "get_inventory",
+        lambda item_type: {
+            "inventory": [
+                {
+                    "AdjunctsName": "Citra Incognito",
+                    "MeasurementUnits": "kg",
+                    "historyUnique": "1039472",
+                }
+            ]
+        },
+    )
+
+    monkeypatch.setattr(
+        brew_planning,
+        "get_inventory_lots",
+        lambda item_type, item_id: {
+            "inventory": [
+                {
+                    "AdjunctsName": "Citra Incognito",
+                    "MeasurementUnits": "kg",
+                    "AddAmount": "4.0000",
+                    "TotalDepleted": "3.5000",
+                    "Archived": "0",
+                }
+            ]
+        },
+    )
+
+    result = brew_planning.get_adjunct_inventory([requirement])
+
+    assert len(result) == 1
+    assert result[0]["name"] == "Citra Incognito"
+    assert result[0]["quantity"] == 0.5
+    assert result[0]["unit"] == "kg"
+    assert result[0]["inventory_known"] is True
+
+
+def test_get_adjunct_inventory_combines_multiple_lots(monkeypatch):
+    from intelligence import brew_planning
+
+    requirement = {
+        "name": "Test Adjunct",
+        "category": "adjunct",
+        "quantity": 1.0,
+        "unit": "kg",
+    }
+
+    monkeypatch.setattr(
+        brew_planning,
+        "get_inventory",
+        lambda item_type: {
+            "inventory": [
+                {
+                    "AdjunctsName": "Test Adjunct",
+                    "MeasurementUnits": "kg",
+                    "historyUnique": "12345",
+                }
+            ]
+        },
+    )
+
+    monkeypatch.setattr(
+        brew_planning,
+        "get_inventory_lots",
+        lambda item_type, item_id: {
+            "inventory": [
+                {
+                    "MeasurementUnits": "kg",
+                    "AddAmount": "4.0",
+                    "TotalDepleted": "1.0",
+                    "Archived": "0",
+                },
+                {
+                    "MeasurementUnits": "kg",
+                    "AddAmount": "10.0",
+                    "TotalDepleted": "2.0",
+                    "Archived": "0",
+                },
+            ]
+        },
+    )
+
+    result = brew_planning.get_adjunct_inventory([requirement])
+
+    assert result[0]["quantity"] == 11.0
+
+
+def test_get_adjunct_inventory_ignores_archived_lots(monkeypatch):
+    from intelligence import brew_planning
+
+    requirement = {
+        "name": "Test Adjunct",
+        "category": "adjunct",
+        "quantity": 1.0,
+        "unit": "kg",
+    }
+
+    monkeypatch.setattr(
+        brew_planning,
+        "get_inventory",
+        lambda item_type: {
+            "inventory": [
+                {
+                    "AdjunctsName": "Test Adjunct",
+                    "MeasurementUnits": "kg",
+                    "historyUnique": "12345",
+                }
+            ]
+        },
+    )
+
+    monkeypatch.setattr(
+        brew_planning,
+        "get_inventory_lots",
+        lambda item_type, item_id: {
+            "inventory": [
+                {
+                    "MeasurementUnits": "kg",
+                    "AddAmount": "4.0",
+                    "TotalDepleted": "1.0",
+                    "Archived": "0",
+                },
+                {
+                    "MeasurementUnits": "kg",
+                    "AddAmount": "20.0",
+                    "TotalDepleted": "0.0",
+                    "Archived": "1",
+                },
+            ]
+        },
+    )
+
+    result = brew_planning.get_adjunct_inventory([requirement])
+
+    assert result[0]["quantity"] == 3.0
