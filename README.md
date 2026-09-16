@@ -354,6 +354,71 @@ Because sandbox data may not represent current brewery operations, Beer30 WIP re
 
 Live production integration will be expanded once current API access and production data are available.
 
+### 🧾 Brew Feasibility & Planning
+
+Brews Springsteen now includes a brew-planning layer that evaluates whether requested beers can be brewed using current Beer30 recipe and inventory data.
+
+The planner accepts natural-language brew requests such as:
+
+```text
+I'd like to brew Into the Haze, Beach Boys, and Oktoberfest.
+```
+
+The workflow is:
+
+```text
+Natural-language brew request
+        │
+        ▼
+Parse requested beers
+        │
+        ▼
+Retrieve active Beer30 recipes
+        │
+        ▼
+Calculate ingredient requirements
+        │
+        ▼
+Retrieve current Beer30 inventory
+        │
+        ▼
+Compare required vs. available
+        │
+        ▼
+Return shortages / feasibility
+```
+
+Requirements are combined across all requested batches, including duplicate beer requests. Requesting the same beer twice represents two batches rather than collapsing the request into one.
+
+The planner supports standard inventory items and adjunct inventory using Beer30 lot data where required.
+
+Beer recipes are retrieved from Beer30 rather than maintained as a second local recipe database, keeping feasibility calculations aligned with the brewery's current Beer30 recipes.
+
+The brew-planning workflow is integrated into the natural-language intelligence layer and can be accessed through Slack.
+
+### Purchase Order Integration — Pending
+
+The project has also been investigated for automated purchase-order creation from vendor confirmation emails.
+
+The current proof of concept successfully demonstrates:
+
+```text
+Vendor confirmation email
+        │
+        ▼
+Gmail API
+        │
+        ▼
+PDF attachment
+        │
+        ▼
+Structured order information
+```
+
+Beer30 exposes purchase-order API endpoints, including an endpoint for creating draft purchase orders.
+
+This work is currently paused pending Beer30 API documentation and/or API-key permissions for the draft purchase-order creation endpoint. No Beer30 purchase-order writes have been performed by Brews Springsteen.
+
 ---
 
 ## 📊 Upserve Sales Automation
@@ -491,6 +556,7 @@ It can distinguish between questions involving:
 - General style questions
 - Hop information and recommendations
 - Beer30 WIP information
+- Brew feasibility and planning
 - Karma Score and Karma Inspector commands
 
 The goal is to allow brewery staff to ask questions naturally rather than learn a collection of application-specific commands.
@@ -561,6 +627,7 @@ The `upserve_processed_reports` table provides persistent state for automated Up
 - Daily operational reporting
 - End-of-day reporting
 - Beer30 WIP reporting
+- Brew feasibility and inventory planning
 - Upserve weekly sales reporting
 - Slack delivery of operational reports
 
@@ -789,7 +856,7 @@ The Upserve runner can be executed manually at any time. If the latest report ha
 
 The project uses `pytest` for automated testing.
 
-The current regression suite contains **153 tests** covering:
+The current regression suite contains **193 tests** covering:
 
 - Schedule and task workflows
 - Task completion
@@ -822,7 +889,7 @@ pytest
 Current baseline:
 
 ```text
-153 passed
+193 passed
 ```
 
 The latest full regression run completed successfully with all tests passing.
@@ -884,6 +951,7 @@ The project currently has operational components for:
 - Hop comparisons and recommendations
 - Beer30 sandbox integration
 - Beer30 WIP and inventory infrastructure
+- Brew feasibility and inventory planning
 - Upserve weekly sales automation
 - Gmail-based report ingestion
 - Automated Slack sales reporting
@@ -893,7 +961,9 @@ The project currently has operational components for:
 
 ### Current Development Priorities
 
-Beer30 live-data expansion remains dependent on access to current production data.
+The brew feasibility and planning milestone is implemented, tested, and integrated with Beer30 recipe and inventory data and the natural-language workflow.
+
+Beer30 purchase-order creation has been investigated and is currently paused pending the API documentation and/or permissions required for the draft purchase-order creation endpoint. The read-only purchase-order API has been successfully verified.
 
 The Upserve weekly reporting workflow is operational and has been tested through the complete Gmail → CSV → parsing → Slack → SQLite pipeline.
 
@@ -909,6 +979,8 @@ Potential future capabilities include:
 - Style aliases and alternate terminology
 - Additional beer knowledge sources
 - Beer30 live production integration
+- Expanded brew planning and production forecasting
+- Purchase-order automation when Beer30 write access is available
 - Production and batch tracking
 - Fermentation analytics
 - Inventory analysis
