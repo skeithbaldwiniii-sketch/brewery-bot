@@ -328,7 +328,7 @@ def parse_brew_request(question: str) -> dict[str, Any]:
             flags=re.IGNORECASE,
         ).strip()
 
-        if beer and beer not in beers:
+        if beer:
             beers.append(beer)
 
     return {

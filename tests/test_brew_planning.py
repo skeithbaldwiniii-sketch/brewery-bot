@@ -785,6 +785,20 @@ def test_parse_brew_request_with_comma_and_and():
         ],
     }
 
+def test_parse_brew_request_preserves_duplicate_beers():
+    question = "I'd like to brew Into The Haze, Into The Haze, and Super Juice."
+
+    result = parse_brew_request(question)
+
+    assert result == {
+        "is_brew_request": True,
+        "beers": [
+            "Into The Haze",
+            "Into The Haze",
+            "Super Juice",
+        ],
+    }
+
 
 def test_parse_brew_request_with_single_beer():
     question = "Can we brew Festbier?"
