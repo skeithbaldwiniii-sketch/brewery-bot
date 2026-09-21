@@ -30,6 +30,7 @@ from knowledge.style_synthesis import format_style_synthesis
 from intelligence.beer30_queries import (
     is_wip_question,
     answer_wip_question,
+    answer_inventory_question,
 )
 
 STYLE_FAMILIES = {
@@ -563,7 +564,17 @@ def answer_question(question):
 
     cleaned = clean_question(question)
 
-        # ---------------------------------------------------------
+    # ---------------------------------------------------------
+    # BEER30 INVENTORY QUESTIONS
+    # ---------------------------------------------------------
+
+    inventory_answer = answer_inventory_question(question)
+
+    if inventory_answer:
+        print(inventory_answer)
+        return
+
+    # ---------------------------------------------------------
     # HISTORY QUESTIONS
     # ---------------------------------------------------------
 
