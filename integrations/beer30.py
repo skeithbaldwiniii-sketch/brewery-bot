@@ -229,6 +229,77 @@ def get_inventory(item_type: str) -> dict[str, Any] | list[Any] | None:
         },
     )
 
+def get_finished_goods(
+    location: str = "313",
+) -> dict[str, Any] | list[Any] | None:
+    """
+    Retrieve Beer30 finished-goods inventory for a location.
+
+    Beer30 filters finished goods by distribution location ID.
+    Coldbox is location ID 313.
+
+    Args:
+        location: Beer30 distribution location ID.
+    """
+
+    if not str(location).strip():
+        raise ValueError(
+            "Beer30 finished-goods location cannot be empty."
+        )
+
+    return _request(
+        "distribution/finished-goods",
+        params={
+            "location": str(location).strip(),
+        },
+    )
+
+
+def get_wholesale_inventory() -> list[dict[str, Any]]:
+    """
+    Retrieve and normalize finished-goods inventory from the Beer30 Coldbox.
+
+    Returns one record per finished-goods package format.
+    Quantities are reported using Beer30's available quantity,
+    excluding allocated inventory.
+    """
+
+    result = get_finished_goods()
+
+    if not result:
+        return []
+
+    finished_goods = result.get("finished-goods", [])
+
+    if not finished_goods:
+        return []
+
+    inventory: list[dict[str, Any]] = []
+
+    for item in finished_goods:
+        locations = item.get("locations", [])
+
+        for location in locations:
+            inventory.append(
+                {
+                    "product_id": item.get("product-id"),
+                    "brand": item.get("brand"),
+                    "package": item.get("package"),
+                    "package_unit": item.get("package-unit"),
+                    "package_size": item.get("package-size"),
+                    "package_size_oz": item.get("package-size-oz"),
+                    "units_per_case": float(
+                        item.get("units-per-case", 0) or 0
+                    ),
+                    "total": location.get("total"),
+                    "allocated": location.get("allocated"),
+                    "available": location.get("available"),
+                    "location_id": location.get("location-id"),
+                    "location_name": location.get("location-name"),
+                }
+            )
+
+    return inventory
 
 def get_production_volume_brewed(
     start_date: str | date,

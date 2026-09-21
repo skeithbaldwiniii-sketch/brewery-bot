@@ -5,6 +5,7 @@ from integrations.beer30 import (
     get_inventory_history,
     get_latest_sync,
     get_sync_history,
+    get_wholesale_inventory,
 )
 
 
@@ -12,6 +13,8 @@ INVENTORY_KEYWORDS = [
     "inventory",
     "in stock",
     "stock",
+    "wholesale",
+    "coldbox",
     "how many",
     "how much",
     "do we have",
@@ -34,6 +37,34 @@ def answer_inventory_question(question):
 
     if not any(keyword in q for keyword in INVENTORY_KEYWORDS):
         return None
+
+    if "wholesale" in q or "coldbox" in q:
+        items = get_wholesale_inventory()
+
+        product_name = _extract_wholesale_product_name(q, items)
+        package_type = _extract_wholesale_package_type(q)
+
+        if product_name:
+            matches = _find_wholesale_product(items, product_name)
+
+            if package_type:
+                matches = _find_wholesale_package(matches, package_type)
+
+            if matches:
+                return _format_wholesale_inventory(matches)
+
+            if package_type:
+                return (
+                    f"No wholesale inventory found for "
+                    f"{product_name} {package_type}s."
+                )
+
+            return f"No wholesale inventory found for {product_name}."
+
+        return _format_wholesale_inventory(items)
+
+    # ---------------------------------------------------------
+
 
         # ---------------------------------------------------------
     # SYNC STATUS REQUESTS
@@ -125,6 +156,7 @@ def answer_inventory_question(question):
         items = get_latest_inventory("canning")
 
         return _format_inventory_list(items)
+
 
     return None
 
@@ -271,6 +303,110 @@ def _format_inventory_list(items):
         lines.append(
             f"- {item['item_name']}: "
             f"{quantity:,.2f} {unit}"
+        )
+
+    return "\n".join(lines)
+
+def _find_wholesale_product(items, beer_name):
+    """
+    Find wholesale inventory records matching a beer brand name.
+
+    Matching is case-insensitive substring matching.
+    """
+
+    if not beer_name or not beer_name.strip():
+        return []
+
+    target = beer_name.strip().lower()
+
+    return [
+        item
+        for item in items
+        if target in str(item.get("brand") or "").lower()
+    ]
+
+def _find_wholesale_package(items, package_type):
+    """
+    Find wholesale inventory records matching a package type.
+
+    Matching is case-insensitive substring matching against
+    the Beer30 package description.
+    """
+
+    if not package_type or not package_type.strip():
+        return []
+
+    target = package_type.strip().lower()
+
+    return [
+        item
+        for item in items
+        if target in str(item.get("package") or "").lower()
+    ]
+
+def _extract_wholesale_package_type(question):
+    """
+    Extract a package type from a wholesale inventory question.
+
+    Returns "can", "keg", or None.
+    """
+
+    q = question.lower()
+
+    if "can" in q:
+        return "can"
+
+    if "keg" in q:
+        return "keg"
+
+    return None
+
+def _extract_wholesale_product_name(question, items):
+    """
+    Find a finished-goods brand name mentioned in a wholesale question.
+
+    Matching is case-insensitive and based on the brands present
+    in the current Beer30 wholesale inventory.
+    """
+
+    q = question.lower()
+
+    brands = {
+        str(item.get("brand")).strip()
+        for item in items
+        if item.get("brand")
+    }
+
+    matches = [
+        brand
+        for brand in brands
+        if brand.lower() in q
+    ]
+
+    if not matches:
+        return None
+
+    return max(matches, key=len)
+
+def _format_wholesale_inventory(items):
+    """
+    Format current Beer30 finished-goods inventory
+    from the Coldbox.
+    """
+
+    if not items:
+        return "No wholesale inventory found."
+
+    lines = ["Current wholesale inventory:"]
+
+    for item in items:
+        quantity = item.get("available", 0)
+        brand = item.get("brand") or "Unknown product"
+        package = item.get("package") or "Unknown package"
+
+        lines.append(
+            f"- {brand}: "
+            f"{quantity:,.2f} {package}"
         )
 
     return "\n".join(lines)
