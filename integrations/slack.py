@@ -22,6 +22,7 @@ from intelligence.task_queries import (
 from intelligence.beer30_queries import (
     is_wip_question,
     answer_wip_question,
+    answer_inventory_question,
 )
 from intelligence.brew_planning import (
     parse_brew_request,
@@ -790,6 +791,16 @@ def handle_mention(event, say):
             karma_say,
         )
 
+        return
+
+    # ---------------------------------------------
+    # BEER30 INVENTORY QUESTIONS
+    # ---------------------------------------------
+
+    inventory_answer = answer_inventory_question(question)
+
+    if inventory_answer:
+        karma_say(inventory_answer)
         return
 
     # ---------------------------------------------

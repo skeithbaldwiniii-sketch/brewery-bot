@@ -58,3 +58,38 @@ def test_staff_channel_denies_beer30():
     assert len(responses) == 1
     assert "don't have access" in responses[0].lower()
     mock_answer.assert_not_called()
+
+def test_inventory_question_precedes_brewery_beer_knowledge():
+    """Inventory questions should not be intercepted by beer knowledge."""
+
+    event = {
+        "text": "<@BREWSBOT> How many kegs of Oktoberfest are in the Coldbox?",
+        "user": "U_TEST",
+        "channel": TEST_CHANNEL_ID,
+    }
+
+    responses = []
+
+    def fake_say(message):
+        responses.append(message)
+
+    with patch(
+        "integrations.slack.answer_inventory_question",
+        return_value=(
+            "Current wholesale inventory:\n"
+            "- Oktoberfest: 6.00 5.16-gal Keg\n"
+            "- Oktoberfest: 5.00 15.5-gal Keg"
+        ),
+    ), patch(
+        "integrations.slack.answer_brewery_beer_question"
+    ) as mock_beer_answer, patch(
+        "integrations.slack.send_delayed_response",
+        side_effect=lambda say, response, delay: say(response),
+    ):
+        handle_mention(event, fake_say)
+
+    assert len(responses) == 1
+    assert "Current wholesale inventory:" in responses[0]
+    assert "Oktoberfest: 6.00 5.16-gal Keg" in responses[0]
+    assert "Oktoberfest: 5.00 15.5-gal Keg" in responses[0]
+    mock_beer_answer.assert_not_called()
