@@ -345,14 +345,137 @@ Current functionality includes:
 - Historical snapshot timestamps
 - Natural-language WIP queries through Slack
 - Beer30 inventory data retrieval and snapshot infrastructure
+- Raw-material inventory queries for grains, hops, and adjuncts
+- Finished-goods / wholesale inventory queries
+- Coldbox finished-product inventory
+- Local inventory snapshot matching with live Beer30 quantity lookup
+- Ambiguous raw-material matching and clarification
 - Connection and retry handling
 - Tank-status reporting
 
-The current Beer30 integration uses sandbox data for development and testing.
+The Beer30 integration is being developed around the brewery's Beer30 API and local SQLite snapshots. WIP and inventory workflows distinguish locally stored snapshot data from live Beer30 lookups where that distinction matters.
 
-Because sandbox data may not represent current brewery operations, Beer30 WIP responses identify the source report date and local retrieval timestamp rather than presenting the information as live operational data.
+Inventory questions use the local snapshot to identify the requested raw material and category before making a targeted live Beer30 request. This avoids unnecessary API calls and prevents ambiguous product names from being silently interpreted as a specific inventory item.
 
-Live production integration will be expanded once current API access and production data are available.
+### 📦 Beer30 Inventory Intelligence
+
+Brews Springsteen now supports natural-language inventory questions across both **raw materials** and **finished products**.
+
+#### Raw-Material Inventory
+
+Raw-material inventory is synchronized locally from Beer30 for:
+
+```text
+Grains
+Hops
+Adjuncts
+Canning supplies
+```
+
+The local SQLite snapshot is used to identify the requested inventory item and category. Once an item is identified unambiguously, the system makes a targeted live Beer30 inventory request for the current quantity.
+
+Examples:
+
+```text
+How much Citra do we have?
+How much Citra T-90 do we have?
+How much pale malt do we have?
+How many bags of acidulated malt do we have?
+How much coriander do we have?
+```
+
+When an inventory name matches multiple products, the system does not guess. For example, an unqualified Citra request can return the matching products and ask the user to specify which one they mean.
+
+```text
+I found multiple matching inventory items:
+- Citra Lupomax
+- Citra T-90
+- Citra Spectrum
+- Citra Incognito
+Which specific item do you mean?
+```
+
+A follow-up containing an exact local inventory item can then be resolved directly:
+
+```text
+Citra T-90
+→ Current hop inventory:
+  - Citra T-90: 68.50 lb
+```
+
+This snapshot-first approach also limits Beer30 API usage and avoids making multiple category requests for a single ambiguous question.
+
+#### Adjunct Inventory
+
+Beer30 adjunct catalog records do not expose current quantity in the same way as grain and hop records. Brews Springsteen calculates available adjunct inventory from active Beer30 lots:
+
+```text
+available = AddAmount - TotalDepleted
+```
+
+Archived lots are excluded and availability is prevented from becoming negative.
+
+#### Finished-Goods / Wholesale Inventory
+
+Finished packaged and kegged products are retrieved from Beer30's finished-goods distribution data.
+
+The system can answer questions about products stored in the brewery's Coldbox, including packaged beer and keg inventory. Finished-goods availability uses Beer30's available quantity so allocated inventory is not presented as freely available stock.
+
+Example categories include:
+
+```text
+12-oz cans
+16-oz cans
+4-packs / 6-packs
+5.16-gallon kegs
+15.5-gallon kegs
+```
+
+The finished-goods workflow is routed separately from raw-material inventory, allowing questions such as:
+
+```text
+What's in the Coldbox?
+How much Oktoberfest do we have?
+How many kegs of Into the Haze do we have?
+```
+
+#### Inventory Synchronization
+
+The Beer30 inventory synchronization script now imports the supported raw-material categories in one run:
+
+```powershell
+.\.venv\Scripts\python.exe -m scripts.sync_beer30_inventory
+```
+
+The current synchronization covers:
+
+```text
+grains
+hops
+adjuncts
+canning
+```
+
+The resulting records are stored in the local `beer30_inventory` snapshot for identification, routing, and inventory history.
+
+#### Inventory Routing
+
+Inventory questions are handled before general beer-knowledge routing so that an inventory question such as:
+
+```text
+How much Citra do we have?
+```
+
+is treated as an operational inventory request rather than a request for a hop encyclopedia entry.
+
+This distinction is especially important in Slack, where follow-up questions can be short:
+
+```text
+How much Citra do we have?
+Citra T-90 please
+```
+
+The second message can be resolved against the local inventory snapshot rather than falling through to general beer knowledge.
 
 ### 🧾 Brew Feasibility & Planning
 
@@ -556,6 +679,8 @@ It can distinguish between questions involving:
 - General style questions
 - Hop information and recommendations
 - Beer30 WIP information
+- Raw-material inventory
+- Finished-goods / wholesale inventory
 - Brew feasibility and planning
 - Karma Score and Karma Inspector commands
 
@@ -751,6 +876,7 @@ brewery_bot/
 │   ├── test_upserve_idempotency.py
 │   ├── test_upserve_report.py
 │   ├── test_run_upserve_weekly.py
+│   ├── test_raw_material_inventory_queries.py
 │   └── ...
 │
 ├── styles.json
@@ -864,6 +990,8 @@ The current regression suite contains **193 tests** covering:
 - Daily reporting
 - Tank status
 - Beer30 integration
+- Beer30 raw-material inventory routing and formatting
+- Beer30 finished-goods / wholesale inventory
 - Beer knowledge
 - BJCP style lookup and routing
 - Brewers Association style lookup and routing
@@ -893,6 +1021,18 @@ Current baseline:
 ```
 
 The latest full regression run completed successfully with all tests passing.
+
+Targeted Beer30 raw-material inventory tests:
+
+```powershell
+pytest tests/test_raw_material_inventory_queries.py -q
+```
+
+Current raw-material inventory regression coverage:
+
+```text
+47 passed
+```
 
 Targeted Upserve tests:
 
@@ -949,8 +1089,10 @@ The project currently has operational components for:
 - Deterministic BJCP/BA style synthesis
 - Hop intelligence
 - Hop comparisons and recommendations
-- Beer30 sandbox integration
+- Beer30 API integration
 - Beer30 WIP and inventory infrastructure
+- Raw-material inventory intelligence
+- Finished-goods / wholesale inventory
 - Brew feasibility and inventory planning
 - Upserve weekly sales automation
 - Gmail-based report ingestion
@@ -962,6 +1104,8 @@ The project currently has operational components for:
 ### Current Development Priorities
 
 The brew feasibility and planning milestone is implemented, tested, and integrated with Beer30 recipe and inventory data and the natural-language workflow.
+
+The Beer30 inventory intelligence milestone now includes raw-material synchronization, snapshot-based product/category identification, live current-quantity lookups, adjunct lot availability calculations, finished-goods/wholesale inventory, and natural-language Slack routing.
 
 Beer30 purchase-order creation has been investigated and is currently paused pending the API documentation and/or permissions required for the draft purchase-order creation endpoint. The read-only purchase-order API has been successfully verified.
 
@@ -983,7 +1127,8 @@ Potential future capabilities include:
 - Purchase-order automation when Beer30 write access is available
 - Production and batch tracking
 - Fermentation analytics
-- Inventory analysis
+- Deeper inventory analysis
+- Inventory consumption and usage trends
 - Beer and cider sales rankings
 - Historical sales analytics
 - Packaged product performance
