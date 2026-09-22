@@ -9,14 +9,31 @@ def main():
     print("BREWS SPRINGSTEEN - BEER30 INVENTORY SYNC")
     print("=" * 70)
 
+    inventory_types = (
+        "grains",
+        "hops",
+        "adjuncts",
+        "canning",
+    )
+
     try:
-        saved = save_inventory_snapshot("canning")
+        total_saved = 0
+
+        for inventory_type in inventory_types:
+            print(f"\nSyncing {inventory_type}...")
+
+            saved = save_inventory_snapshot(inventory_type)
+            total_saved += saved
+
+            print(
+                f"Saved {saved} {inventory_type} inventory records."
+            )
 
         print(
             f"\nBeer30 inventory sync complete."
         )
         print(
-            f"Saved {saved} inventory records."
+            f"Saved {total_saved} inventory records total."
         )
 
     except Beer30Error as exc:

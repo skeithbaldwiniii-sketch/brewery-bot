@@ -455,14 +455,16 @@ def save_inventory_snapshot(item_type: str) -> int:
                 )
             else:
                 item_id = (
-                    item.get("SupplyItem_HistoryUnique")
-                    or item.get(
-                        "InventoryItem_HistoryUnique"
-                    )
+                    item.get("historyUnique")
+                    or item.get("SupplyItem_HistoryUnique")
+                    or item.get("InventoryItem_HistoryUnique")
                 )
 
                 item_name = (
-                    item.get("Supply_Item_Name")
+                    item.get("GrainName")
+                    or item.get("HopsName")
+                    or item.get("AdjunctsName")
+                    or item.get("Supply_Item_Name")
                     or item.get("Inventory_Item_Name")
                 )
 
@@ -486,14 +488,16 @@ def save_inventory_snapshot(item_type: str) -> int:
                     item_type,
                     item_name,
                     item.get("breweryID"),
-                    item.get("Measurement_Unit"),
+                    item.get("WeightUnits") or item.get("MeasurementUnits") or item.get(
+                        "Measurement_Unit"
+                    ),
                     _to_float(
                         item.get("Quantity_Per_Unit")
                     ),
                     _to_float(
-                        item.get(
-                            "Total_Quantity_In_Stock_In_Each"
-                        )
+                        item.get("QuantityInStock")
+                        if item_type in ("grains", "hops")
+                        else item.get("Total_Quantity_In_Stock_In_Each")
                     ),
                     _to_int(
                         item.get("Archived")

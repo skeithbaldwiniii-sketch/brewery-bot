@@ -1,6 +1,9 @@
+import re
 from integrations.beer30 import (
+    get_inventory,
     get_inventory_item,
     get_inventory_items,
+    get_inventory_lots,
     get_latest_inventory,
     get_inventory_history,
     get_latest_sync,
@@ -27,6 +30,234 @@ INVENTORY_KEYWORDS = [
     "synced",
 ]
 
+def _inventory_category_hint(question):
+    """
+    Detect an explicit raw-material category in an inventory question.
+    """
+
+    q = question.lower()
+
+    if any(
+        phrase in q
+        for phrase in [
+            "grain",
+            "grains",
+            "malt",
+            "malts",
+        ]
+    ):
+        return "grain"
+
+    if any(
+        phrase in q
+        for phrase in [
+            "hop",
+            "hops",
+        ]
+    ):
+        return "hop"
+
+    if "adjunct" in q or "adjuncts" in q:
+        return "adjunct"
+
+    return None
+
+def _find_local_inventory_category(question):
+    """
+    Identify the inventory category from the local Beer30 snapshot.
+
+    Returns "grain", "hop", or "adjunct" when the question matches
+    exactly one local inventory item category.
+    """
+    local_items = get_latest_inventory()
+
+    if not local_items:
+        return None
+
+    q_words = set(
+        re.findall(
+            r"[a-z0-9]+",
+            question.lower(),
+        )
+    )
+
+    if not q_words:
+        return None
+
+    categories = {
+        "grains": "grain",
+        "hops": "hop",
+        "adjuncts": "adjunct",
+    }
+
+    matches = []
+
+    for item in local_items:
+        item_type = item.get("item_type")
+        category = categories.get(item_type)
+
+        if category is None:
+            continue
+
+        item_name = str(item.get("item_name") or "").strip()
+
+        if not item_name:
+            continue
+
+        item_words = set(
+            re.findall(
+                r"[a-z0-9]+",
+                item_name.lower(),
+            )
+        )
+
+        if item_words.issubset(q_words):
+            matches.append((len(item_words), category))
+
+    if not matches:
+        return None
+
+    return max(matches, key=lambda match: match[0])[1]
+
+def _find_local_inventory_matches(question):
+    """
+    Find raw-material inventory items matching the requested item words.
+
+    Uses the local Beer30 inventory snapshot so category and product
+    matching can be resolved without making a Beer30 API request.
+    """
+    local_items = get_latest_inventory()
+
+    if not local_items:
+        return []
+
+    stop_words = {
+        "how",
+        "much",
+        "many",
+        "do",
+        "we",
+        "have",
+        "has",
+        "is",
+        "are",
+        "there",
+        "in",
+        "our",
+        "the",
+        "a",
+        "an",
+        "of",
+        "for",
+        "on",
+        "hand",
+        "left",
+        "remaining",
+        "remain",
+        "stock",
+        "inventory",
+        "raw",
+        "material",
+        "grain",
+        "grains",
+        "malt",
+        "malts",
+        "hop",
+        "hops",
+        "adjunct",
+        "adjuncts",
+        "bag",
+        "bags",
+        "pound",
+        "pounds",
+        "lbs",
+        "lb",
+        "kg",
+        "kilogram",
+        "kilograms",
+    }
+
+    search_words = {
+        word
+        for word in re.findall(
+            r"[a-z0-9]+",
+            question.lower(),
+        )
+        if word not in stop_words
+    }
+
+    if not search_words:
+        return []
+
+    matches = []
+
+    for item in local_items:
+        if item.get("item_type") not in {
+            "grains",
+            "hops",
+            "adjuncts",
+        }:
+            continue
+
+        item_name = str(item.get("item_name") or "").strip()
+
+        if not item_name:
+            continue
+
+        item_words = {
+            word
+            for word in re.findall(
+                r"[a-z0-9]+",
+                item_name.lower(),
+            )
+        }
+
+        if search_words.issubset(item_words):
+            matches.append(item)
+
+    return matches
+
+def _find_local_adjunct_inventory(items, search_term):
+    """
+    Find adjuncts in the local Beer30 inventory snapshot.
+    """
+
+    if not search_term or not search_term.strip():
+        return []
+
+    search_words = {
+        word
+        for word in re.findall(
+            r"[a-z0-9]+",
+            search_term.lower(),
+        )
+    }
+
+    if not search_words:
+        return []
+
+    matches = []
+
+    for item in items:
+        if item.get("item_type") != "adjuncts":
+            continue
+
+        item_name = str(
+            item.get("item_name") or ""
+        ).strip()
+
+        item_words = {
+            word
+            for word in re.findall(
+                r"[a-z0-9]+",
+                item_name.lower(),
+            )
+        }
+
+        if search_words.issubset(item_words):
+            matches.append(item)
+
+    return matches
 
 def answer_inventory_question(question):
     """
@@ -35,8 +266,14 @@ def answer_inventory_question(question):
 
     q = question.lower().strip()
 
-    if not any(keyword in q for keyword in INVENTORY_KEYWORDS):
-        return None
+    has_inventory_keyword = any(
+        keyword in q
+        for keyword in INVENTORY_KEYWORDS
+    )
+
+    if not has_inventory_keyword:
+        if not _find_local_inventory_matches(q):
+            return None
 
     if "wholesale" in q or "coldbox" in q:
         items = get_wholesale_inventory()
@@ -64,9 +301,130 @@ def answer_inventory_question(question):
         return _format_wholesale_inventory(items)
 
     # ---------------------------------------------------------
+    # RAW MATERIAL INVENTORY
+    # ---------------------------------------------------------
 
+    category_hint = _inventory_category_hint(q)
+    local_matches = []
 
-        # ---------------------------------------------------------
+    if category_hint is None:
+        local_matches = _find_local_inventory_matches(q)
+
+        if len(local_matches) == 1:
+            item_type = local_matches[0].get("item_type")
+
+            category_hint = {
+                "grains": "grain",
+                "hops": "hop",
+                "adjuncts": "adjunct",
+            }.get(item_type)
+
+        elif len(local_matches) > 1:
+            match_names = [
+                str(item.get("item_name") or "Unknown item")
+                for item in local_matches
+            ]
+
+            return (
+                "I found multiple matching inventory items:\n"
+                + "\n".join(
+                    f"- {name}"
+                    for name in match_names
+                )
+                + "\nWhich specific item do you mean?"
+            )
+    # ---------------------------------------------------------
+    # GRAIN
+    # ---------------------------------------------------------
+
+    if category_hint == "grain":
+        grain_search = _extract_grain_search_term(q)
+
+        if grain_search:
+            grain_items = _get_current_grain_inventory()
+            grain_matches = _find_grain_inventory(
+                grain_items,
+                grain_search,
+            )
+
+            if grain_matches:
+                if "bag" in q:
+                    return _format_grain_bag_inventory(
+                        grain_matches
+                    )
+
+                return _format_grain_inventory(
+                    grain_matches
+                )
+
+    # ---------------------------------------------------------
+    # HOP
+    # ---------------------------------------------------------
+
+    if category_hint == "hop":
+        hop_items = _get_current_hop_inventory()
+        hop_search = _extract_hop_search_term(
+            q,
+            hop_items,
+        )
+
+        if hop_search:
+            hop_matches = _find_hop_inventory(
+                hop_items,
+                hop_search,
+            )
+
+            if hop_matches:
+                return _format_hop_inventory(
+                    hop_matches
+                )
+
+    # ---------------------------------------------------------
+    # ADJUNCT
+    # ---------------------------------------------------------
+
+    if category_hint == "adjunct":
+        adjunct_items = get_latest_inventory()
+
+        adjunct_search = _extract_adjunct_search_term(
+            q,
+            [
+                {
+                    "AdjunctsName": item.get("item_name"),
+                }
+                for item in adjunct_items
+                if item.get("item_type") == "adjuncts"
+            ],
+        )
+
+        if adjunct_search:
+            adjunct_matches = _find_local_adjunct_inventory(
+                adjunct_items,
+                adjunct_search,
+            )
+
+            if adjunct_matches:
+                return _format_adjunct_inventory(
+                    [
+                        {
+                            "AdjunctsName": item.get("item_name"),
+                            "MeasurementUnits": item.get(
+                                "measurement_unit"
+                            ),
+                            "historyUnique": item.get(
+                                "beer30_item_id"
+                            ),
+                        }
+                        for item in adjunct_matches
+                    ]
+                )
+
+    if category_hint is None:
+        return (
+            "I couldn't find that raw material in the latest "
+            "Beer30 inventory snapshot."
+        )
+    # ---------------------------------------------------------
     # SYNC STATUS REQUESTS
     # ---------------------------------------------------------
 
@@ -160,6 +518,439 @@ def answer_inventory_question(question):
 
     return None
 
+def _get_current_grain_inventory():
+    """
+    Retrieve active grain inventory directly from Beer30.
+    """
+
+    response = get_inventory("grains")
+
+    if not response:
+        return []
+
+    records = response.get("inventory", [])
+
+    return [
+        record
+        for record in records
+        if str(record.get("Archived") or "0").strip() != "1"
+    ]
+
+def _get_current_hop_inventory():
+    """
+    Retrieve active hop inventory directly from Beer30.
+    """
+
+    response = get_inventory("hops")
+
+    if not response:
+        return []
+
+    records = response.get("inventory", [])
+
+    return [
+        record
+        for record in records
+        if str(record.get("Archived") or "0").strip() != "1"
+    ]
+
+def _get_current_adjunct_catalog():
+    """
+    Retrieve the Beer30 adjunct catalog.
+    """
+
+    response = get_inventory("adjuncts")
+
+    if not response:
+        return []
+
+    return response.get("inventory", [])
+
+def _find_adjunct_inventory(items, search_term):
+    """
+    Find adjunct catalog entries using word-based name matching.
+    """
+
+    if not search_term or not search_term.strip():
+        return []
+
+    search_words = {
+        word
+        for word in re.findall(
+            r"[a-z0-9]+",
+            search_term.lower(),
+        )
+    }
+
+    if not search_words:
+        return []
+
+    exact_matches = [
+        item
+        for item in items
+        if str(item.get("AdjunctsName") or "").strip().lower()
+        == search_term.strip().lower()
+    ]
+
+    if exact_matches:
+        return exact_matches
+
+    matches = []
+
+    for item in items:
+        adjunct_name = str(
+            item.get("AdjunctsName") or ""
+        ).lower()
+
+        name_words = {
+            word
+            for word in re.findall(
+                r"[a-z0-9]+",
+                adjunct_name,
+            )
+        }
+
+        if search_words.issubset(name_words):
+            matches.append(item)
+
+    return matches
+
+def _get_adjunct_available_quantity(item):
+    """
+    Calculate current available quantity for an adjunct.
+
+    Beer30 does not expose the current quantity on the adjunct
+    catalog record. Availability is calculated from active lots:
+
+        available = AddAmount - TotalDepleted
+    """
+
+    item_id = item.get("historyUnique")
+
+    if not item_id:
+        return None
+
+    lots_response = get_inventory_lots(
+        "adjuncts",
+        str(item_id),
+    )
+
+    if not lots_response:
+        return 0.0
+
+    lots = lots_response.get("inventory", [])
+
+    available_quantity = 0.0
+
+    for lot in lots:
+        if str(lot.get("Archived") or "0").strip() == "1":
+            continue
+
+        add_amount = lot.get("AddAmount")
+
+        if add_amount is None:
+            continue
+
+        total_depleted = lot.get("TotalDepleted")
+
+        available_quantity += (
+            float(add_amount or 0)
+            - float(total_depleted or 0)
+        )
+
+    return max(available_quantity, 0.0)
+
+def _format_adjunct_inventory(items):
+    """
+    Format matching adjunct inventory with current lot availability.
+    """
+
+    if not items:
+        return "No matching adjunct inventory found."
+
+    lines = ["Current adjunct inventory:"]
+
+    for item in items:
+        name = item.get("AdjunctsName") or "Unknown adjunct"
+        quantity = _get_adjunct_available_quantity(item)
+        unit = item.get("MeasurementUnits") or "unit"
+
+        if quantity is None:
+            lines.append(
+                f"- {name}: inventory quantity unavailable"
+            )
+            continue
+
+        lines.append(
+            f"- {name}: {quantity:,.2f} {unit}"
+        )
+
+    return "\n".join(lines)
+
+def _extract_adjunct_search_term(question, items):
+    """
+    Extract an adjunct name from a natural-language inventory question.
+    """
+
+    q = question.lower()
+
+    adjunct_names = {
+        str(item.get("AdjunctsName") or "").strip()
+        for item in items
+        if item.get("AdjunctsName")
+    }
+
+    exact_matches = [
+        name
+        for name in adjunct_names
+        if name.lower() in q
+    ]
+
+    if exact_matches:
+        return max(exact_matches, key=len)
+
+    return None
+
+def _find_grain_inventory(items, search_term):
+    """
+    Find active grain inventory records using word-based name matching.
+    """
+
+    if not search_term or not search_term.strip():
+        return []
+
+    search_words = {
+        word
+        for word in re.findall(r"[a-z0-9]+", search_term.lower())
+    }
+
+    if not search_words:
+        return []
+
+    matches = []
+
+    for item in items:
+        grain_name = str(item.get("GrainName") or "").lower()
+
+        name_words = {
+            word
+            for word in re.findall(r"[a-z0-9]+", grain_name)
+        }
+
+        if search_words.issubset(name_words):
+            matches.append(item)
+
+    return matches
+
+def _find_hop_inventory(items, search_term):
+    """
+    Find active hop inventory using exact-name matching first,
+    then fall back to word-based matching.
+    """
+
+    if not search_term or not search_term.strip():
+        return []
+
+    target = search_term.strip().lower()
+
+    exact_matches = [
+        item
+        for item in items
+        if str(item.get("HopsName") or "").strip().lower() == target
+    ]
+
+    if exact_matches:
+        return exact_matches
+
+    search_words = {
+        word
+        for word in re.findall(r"[a-z0-9]+", target)
+    }
+
+    if not search_words:
+        return []
+
+    matches = []
+
+    for item in items:
+        hop_name = str(item.get("HopsName") or "").lower()
+
+        name_words = {
+            word
+            for word in re.findall(r"[a-z0-9]+", hop_name)
+        }
+
+        if search_words.issubset(name_words):
+            matches.append(item)
+
+    return matches
+
+def _format_hop_inventory(items):
+    """
+    Format matching hop inventory.
+    """
+
+    if not items:
+        return "No matching hop inventory found."
+
+    lines = ["Current hop inventory:"]
+
+    for item in items:
+        name = item.get("HopsName") or "Unknown hop"
+        quantity = float(item.get("QuantityInStock") or 0)
+        unit = item.get("WeightUnits") or "lb"
+
+        lines.append(
+            f"- {name}: {quantity:,.2f} {unit}"
+        )
+
+    return "\n".join(lines)
+
+def _extract_hop_search_term(question, items):
+    """
+    Extract a hop name from a natural-language inventory question.
+    """
+
+    q = question.lower()
+
+    hop_names = {
+        str(item.get("HopsName") or "").strip()
+        for item in items
+        if item.get("HopsName")
+    }
+
+    exact_matches = [
+        name
+        for name in hop_names
+        if name.lower() in q
+    ]
+
+    if exact_matches:
+        return max(exact_matches, key=len)
+
+    return None
+
+def _extract_grain_search_term(question):
+    """
+    Extract the likely grain name from a natural-language inventory question.
+    """
+
+    q = question.lower()
+
+    stop_words = {
+        "how",
+        "much",
+        "many",
+        "do",
+        "we",
+        "have",
+        "has",
+        "is",
+        "are",
+        "there",
+        "in",
+        "our",
+        "the",
+        "a",
+        "an",
+        "of",
+        "for",
+        "on",
+        "hand",
+        "left",
+        "remaining",
+        "remain",
+        "stock",
+        "inventory",
+        "grain",
+        "grains",
+        "bag",
+        "bags",
+        "pound",
+        "pounds",
+        "lbs",
+        "lb",
+    }
+
+    words = re.findall(r"[a-z0-9]+", q)
+
+    search_words = [
+        word
+        for word in words
+        if word not in stop_words
+    ]
+
+    return " ".join(search_words)
+
+def _format_grain_inventory(items):
+    """
+    Format matching grain inventory records.
+    """
+
+    if not items:
+        return "No matching grain inventory found."
+
+    lines = ["Current grain inventory:"]
+
+    for item in items:
+        name = item.get("GrainName") or "Unknown grain"
+        quantity = item.get("QuantityInStock", 0)
+        unit = item.get("WeightUnits") or "lb"
+
+        lines.append(
+            f"- {name}: {float(quantity):,.2f} {unit}"
+        )
+
+    return "\n".join(lines)
+
+def _grain_bag_size(grain_name):
+    """
+    Return the expected bag size for a grain.
+
+    Flaked grains are treated as 50 lb bags.
+    Other grains are treated as 55 lb bags.
+    """
+
+    name = str(grain_name or "").lower()
+
+    if "flaked" in name:
+        return 50
+
+    return 55
+
+def _grain_bag_count(item):
+    """
+    Calculate the equivalent number of bags for a grain inventory item.
+    """
+
+    quantity = float(item.get("QuantityInStock") or 0)
+    bag_size = _grain_bag_size(item.get("GrainName"))
+
+    return quantity / bag_size
+
+def _format_grain_bag_inventory(items):
+    """
+    Format matching grain inventory as equivalent bag counts.
+    """
+
+    if not items:
+        return "No matching grain inventory found."
+
+    lines = ["Current grain inventory by bag equivalent:"]
+
+    for item in items:
+        name = item.get("GrainName") or "Unknown grain"
+        quantity = float(item.get("QuantityInStock") or 0)
+        bag_size = _grain_bag_size(name)
+        bag_count = _grain_bag_count(item)
+
+        lines.append(
+            f"- {name}: "
+            f"{quantity:,.2f} lb "
+            f"({bag_count:,.2f} bags at {bag_size} lb/bag)"
+        )
+
+    return "\n".join(lines)
 
 def _extract_item_name(question):
     """
