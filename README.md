@@ -400,6 +400,7 @@ Current functionality includes:
 - Historical snapshot timestamps
 - Natural-language WIP queries through Slack
 - Beer30 inventory data retrieval and snapshot infrastructure
+- Beer30 recipe lookup
 - Raw-material inventory queries for grains, hops, and adjuncts
 - Finished-goods / wholesale inventory queries
 - Coldbox finished-product inventory
@@ -411,6 +412,19 @@ Current functionality includes:
 The Beer30 integration is being developed around the brewery's Beer30 API and local SQLite snapshots. WIP and inventory workflows distinguish locally stored snapshot data from live Beer30 lookups where that distinction matters.
 
 Inventory questions use the local snapshot to identify the requested raw material and category before making a targeted live Beer30 request. This avoids unnecessary API calls and prevents ambiguous product names from being silently interpreted as a specific inventory item.
+
+### 🍺 Beer30 Recipe Lookup
+
+Brews Springsteen can retrieve active beer recipes directly from Beer30 and answer natural-language questions about recipe information.
+
+The recipe workflow retrieves the brewery's current recipe data from Beer30 rather than maintaining a separate local recipe database.
+
+Example questions include:
+
+```text
+What's the recipe for Into the Haze?
+Show me the recipe for Beach Boys.
+What ingredients are in Oktoberfest?
 
 ### 📦 Beer30 Inventory Intelligence
 
@@ -1152,6 +1166,7 @@ The project currently has operational components for:
 - Hop comparisons and recommendations
 - Beer30 API integration
 - Beer30 WIP and inventory infrastructure
+- Beer30 recipe lookup
 - Raw-material inventory intelligence
 - FOH style-to-beer relationship examples
 - Finished-goods / wholesale inventory
