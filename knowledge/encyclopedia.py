@@ -180,7 +180,7 @@ def get_style(name):
         """
         SELECT *
         FROM beer_styles
-        WHERE name = ?
+        WHERE LOWER(name) = LOWER(?)
         """,
         (name,),
     ).fetchone()

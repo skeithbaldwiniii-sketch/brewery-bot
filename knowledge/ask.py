@@ -25,8 +25,10 @@ from knowledge.hop_recommendations import (
 from knowledge.hop_substitutions import (
     format_hop_substitutions,
 )
-from knowledge.style_synthesis import format_style_synthesis
-
+from knowledge.style_synthesis import (
+    format_foh_style_examples,
+    format_style_synthesis,
+)
 from intelligence.beer30_queries import (
     is_wip_question,
     answer_wip_question,
@@ -878,6 +880,11 @@ def answer_question(question):
     style_synthesis = format_style_synthesis(cleaned)
     if style_synthesis:
         return style_synthesis
+
+    # Vanish FOH style examples
+    foh_style_examples = format_foh_style_examples(cleaned)
+    if foh_style_examples:
+        return "\n".join(foh_style_examples)
 
     # BJCP encyclopedia style
     styles = search_exact_style(cleaned)

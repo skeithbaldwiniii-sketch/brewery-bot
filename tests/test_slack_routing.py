@@ -135,3 +135,32 @@ def test_recipe_question_precedes_brewery_beer_knowledge():
         "What is the recipe for Ghost Fleet?"
     )
     mock_beer_answer.assert_not_called()
+
+def test_foh_style_question_reaches_slack():
+    """FOH style questions should return Vanish beer examples."""
+
+    event = {
+        "text": "<@BREWSBOT> Hazy IPA",
+        "user": "U_TEST",
+        "channel": TEST_CHANNEL_ID,
+    }
+
+    responses = []
+
+    def fake_say(message):
+        responses.append(message)
+
+    with patch(
+        "integrations.slack.has_capability",
+        return_value=True,
+    ), patch(
+        "integrations.slack.send_delayed_response",
+        side_effect=lambda say, response, delay: say(response),
+    ):
+        handle_mention(event, fake_say)
+
+    assert len(responses) == 1
+    assert "*Hazy IPA*" in responses[0]
+    assert "*Style Summary*" in responses[0]
+    assert "An American IPA with intense fruit flavors and aromas" in responses[0]
+    assert "*Vanish Examples:* Into The Haze, Super Juice, Fire IPA, Ghost Fleet" in responses[0]

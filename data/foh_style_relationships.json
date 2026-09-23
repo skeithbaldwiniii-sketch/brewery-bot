@@ -1,0 +1,27 @@
+[
+  {
+    "beer_name": "The Gr8 Chase",
+    "style_name": "Session IPA",
+    "relationship": "falls_into"
+  },
+  {
+    "beer_name": "Fields of Gold",
+    "style_name": "Festbier",
+    "relationship": "recommended_for"
+  },
+  {
+    "beer_name": "Fire IPA",
+    "style_name": "Hazy IPA",
+    "relationship": "recommended_for"
+  },
+  {
+    "beer_name": "Ghost Fleet",
+    "style_name": "Hazy IPA",
+    "relationship": "recommended_for"
+  },
+  {
+    "beer_name": "Bloom",
+    "style_name": "West Coast IPA",
+    "relationship": "recommended_for"
+  }
+]

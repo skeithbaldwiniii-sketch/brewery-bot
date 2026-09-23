@@ -329,6 +329,61 @@ BA source
 
 The synthesis system is deterministic and does not require an LLM to generate the underlying style facts.
 
+### Vanish FOH Style Examples
+
+General style questions can also include concise examples of beers made in-house that are associated with the requested style.
+
+The FOH relationship layer keeps brewery terminology separate from guideline terminology. Direct matches use the beer's stored FOH style, while explicit relationships are maintained separately:
+
+```text
+Style guideline
+      │
+      ├── BJCP / BA source information
+      │
+      └── Vanish FOH examples
+              │
+              ├── direct style match
+              └── explicit style relationship
+```
+
+For example:
+
+```text
+What is Hazy IPA?
+
+*Hazy IPA*
+
+*Style Summary*
+An American IPA with intense fruit flavors and aromas, a soft body,
+smooth mouthfeel, and often opaque with substantial haze.
+
+*Guideline Comparison*
+
+*BJCP — BJCP 2021 Beer Style Guidelines*
+OG: 1.060-1.085 (14.7-20.5 °Plato)
+FG: 1.010-1.015 (2.6-3.8 °Plato)
+ABV: 6.0-9.0%
+IBU: 25.0-60.0
+SRM: 3.0-7.0
+
+*Vanish Examples:* Into The Haze, Super Juice, Fire IPA, Ghost Fleet
+```
+
+The FOH examples are intentionally concise. The system does not rewrite a brewery's stored style terminology to make it fit a guideline category, and it does not add unsupported BJCP/BA crosswalk relationships.
+
+Current explicit FOH style relationships include:
+
+```text
+The Gr8 Chase  → Session IPA
+Fields of Gold → Festbier
+Fire IPA       → Hazy IPA
+Ghost Fleet    → Hazy IPA
+Bloom          → West Coast IPA
+```
+
+Detailed beer questions can then be handled through the brewery beer knowledge layer.
+
+
 ---
 
 ## 🍺 Beer30 Integration
@@ -677,6 +732,7 @@ It can distinguish between questions involving:
 - BJCP style information
 - Brewers Association style information
 - General style questions
+- Vanish FOH style examples
 - Hop information and recommendations
 - Beer30 WIP information
 - Raw-material inventory
@@ -860,6 +916,9 @@ brewery_bot/
 │   ├── run_upserve_weekly.py
 │   ├── sync_beer30_inventory.py
 │   └── data import / processing scripts
+│
+├── data/
+│   └── foh_style_relationships.json
 │
 ├── tests/
 │   ├── test_ba_question_routing.py
@@ -1057,6 +1116,8 @@ __pycache__/
 data/
 ```
 
+The `data/` directory is generally excluded because it contains local operational data and databases. Explicitly tracked non-sensitive reference data, such as `data/foh_style_relationships.json`, is intentionally committed when required by application behavior.
+
 No API tokens, Google service-account credentials, or local operational databases should be committed to the repository.
 
 ### Data & Privacy
@@ -1092,6 +1153,7 @@ The project currently has operational components for:
 - Beer30 API integration
 - Beer30 WIP and inventory infrastructure
 - Raw-material inventory intelligence
+- FOH style-to-beer relationship examples
 - Finished-goods / wholesale inventory
 - Brew feasibility and inventory planning
 - Upserve weekly sales automation
@@ -1163,6 +1225,8 @@ The project provides hands-on experience with:
 - Python application architecture
 - Real-world system integration
 - Automated testing
+- Source-specific knowledge integration
+- Brewery-specific style mapping
 - Workflow automation
 - External-system integration
 
