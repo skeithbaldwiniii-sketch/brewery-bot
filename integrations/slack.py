@@ -24,6 +24,10 @@ from intelligence.beer30_queries import (
     answer_wip_question,
     answer_inventory_question,
 )
+from intelligence.beer30_recipes import (
+    is_recipe_question,
+    answer_recipe_question,
+)
 from intelligence.brew_planning import (
     parse_brew_request,
     check_brew_feasibility,
@@ -801,6 +805,27 @@ def handle_mention(event, say):
 
     if inventory_answer:
         karma_say(inventory_answer)
+        return
+
+    # ---------------------------------------------
+    # BEER30 RECIPE QUESTIONS
+    # ---------------------------------------------
+
+    if is_recipe_question(question):
+
+        if not require_capability(channel_id, BEER30):
+            karma_say(access_denied_message(BEER30))
+            return
+
+        answer = answer_recipe_question(question)
+
+        if answer:
+            karma_say(answer)
+        else:
+            karma_say(
+                "I couldn't find an active Beer30 recipe for that beer."
+            )
+
         return
 
     # ---------------------------------------------

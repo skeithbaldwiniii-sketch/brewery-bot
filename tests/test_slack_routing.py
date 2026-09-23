@@ -93,3 +93,45 @@ def test_inventory_question_precedes_brewery_beer_knowledge():
     assert "Oktoberfest: 6.00 5.16-gal Keg" in responses[0]
     assert "Oktoberfest: 5.00 15.5-gal Keg" in responses[0]
     mock_beer_answer.assert_not_called()
+
+def test_recipe_question_precedes_brewery_beer_knowledge():
+    """Recipe questions should not be intercepted by beer knowledge."""
+
+    event = {
+        "text": "<@BREWSBOT> What is the recipe for Ghost Fleet?",
+        "user": "U_TEST",
+        "channel": TEST_CHANNEL_ID,
+    }
+
+    responses = []
+
+    def fake_say(message):
+        responses.append(message)
+
+    with patch(
+        "integrations.slack.is_recipe_question",
+        return_value=True,
+    ), patch(
+        "integrations.slack.answer_recipe_question",
+        return_value=(
+            "Ghost Fleet (10.00)\n"
+            "Recipe version: 8\n"
+            "Batch size: 10.00\n\n"
+            "Grains:\n"
+            "- Marris Otter - Simpsons: 275.00 lb"
+        ),
+    ) as mock_recipe_answer, patch(
+        "integrations.slack.answer_brewery_beer_question"
+    ) as mock_beer_answer, patch(
+        "integrations.slack.send_delayed_response",
+        side_effect=lambda say, response, delay: say(response),
+    ):
+        handle_mention(event, fake_say)
+
+    assert len(responses) == 1
+    assert "Ghost Fleet (10.00)" in responses[0]
+    assert "Marris Otter - Simpsons: 275.00 lb" in responses[0]
+    mock_recipe_answer.assert_called_once_with(
+        "What is the recipe for Ghost Fleet?"
+    )
+    mock_beer_answer.assert_not_called()

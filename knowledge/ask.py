@@ -32,6 +32,7 @@ from intelligence.beer30_queries import (
     answer_wip_question,
     answer_inventory_question,
 )
+from intelligence.beer30_recipes import answer_recipe_question
 
 STYLE_FAMILIES = {
     "ipa": "IPA",
@@ -575,6 +576,16 @@ def answer_question(question):
         return
 
     # ---------------------------------------------------------
+    # ---------------------------------------------------------
+    # BEER30 RECIPE QUESTIONS
+    # ---------------------------------------------------------
+
+    recipe_answer = answer_recipe_question(question)
+
+    if recipe_answer:
+        print(recipe_answer)
+        return
+
     # HISTORY QUESTIONS
     # ---------------------------------------------------------
 
