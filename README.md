@@ -425,6 +425,7 @@ Example questions include:
 What's the recipe for Into the Haze?
 Show me the recipe for Beach Boys.
 What ingredients are in Oktoberfest?
+```
 
 ### 📦 Beer30 Inventory Intelligence
 
