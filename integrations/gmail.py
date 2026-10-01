@@ -1,6 +1,7 @@
 import os.path
 import base64
 from email import message_from_bytes
+from email.mime.text import MIMEText
 
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
@@ -8,7 +9,10 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 
 
-SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
+SCOPES = [
+    "https://www.googleapis.com/auth/gmail.readonly",
+    "https://www.googleapis.com/auth/gmail.send",
+]
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -52,6 +56,17 @@ def get_gmail_service():
         "v1",
         credentials=creds,
     )
+
+def get_gmail_address():
+    """Return the email address of the authenticated Gmail account."""
+
+    service = get_gmail_service()
+
+    profile = service.users().getProfile(
+        userId="me"
+    ).execute()
+
+    return profile["emailAddress"]
 
 
 def search_emails(query, max_results=10):
@@ -253,3 +268,23 @@ def search_email_content(query, max_results=10):
         query,
         max_results=max_results,
     )
+
+def send_email(to, subject, body):
+    """Send a plain-text email through Gmail."""
+
+    service = get_gmail_service()
+
+    message = MIMEText(body)
+    message["to"] = to
+    message["subject"] = subject
+
+    encoded_message = base64.urlsafe_b64encode(
+        message.as_bytes()
+    ).decode()
+
+    result = service.users().messages().send(
+        userId="me",
+        body={"raw": encoded_message},
+    ).execute()
+
+    return result
