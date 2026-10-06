@@ -1056,31 +1056,45 @@ The Upserve runner can be executed manually at any time. If the latest report ha
 
 The project uses `pytest` for automated testing.
 
-The current regression suite contains **193 tests** covering:
+The current regression suite contains **318 tests** covering:
 
 - Schedule and task workflows
 - Task completion
 - Slack integration and routing
 - Daily reporting
 - Tank status
-- Beer30 integration
+- Beer30 connection and endpoint behavior
+- Beer30 recipe lookup and routing
 - Beer30 raw-material inventory routing and formatting
 - Beer30 finished-goods / wholesale inventory
-- Beer knowledge
+- Beer knowledge and recipe routing
 - BJCP style lookup and routing
 - Brewers Association style lookup and routing
-- BJCP/BA crosswalking
+- BJCP/BA style crosswalking
+- BJCP style aliases
 - Style synthesis
+- Hop formatting
+- Hop queries and routing
 - Hop intelligence
 - Hop comparisons and recommendations
 - Karma Score behavior
 - Karma persistence and state tracking
 - Karma Inspector formatting and routing
+- Access-control behavior
 - Upserve parsing
 - Upserve report formatting
 - Upserve processing
 - Upserve idempotency
 - Upserve scheduled execution
+- Upserve Gmail report sourcing
+- Monthly report discovery
+- Monthly sales parsing and processing
+- Monthly sales product mapping and exclusions
+- Google Sheets sales-sheet preflight validation
+- Google Sheets destination conflict detection
+- Google Sheets write planning and idempotency
+- Google Sheets write verification
+- Monthly sales scheduler wrapper
 
 Run the complete test suite with:
 
@@ -1091,7 +1105,7 @@ pytest
 Current baseline:
 
 ```text
-193 passed
+318 passed
 ```
 
 The latest full regression run completed successfully with all tests passing.
@@ -1102,16 +1116,16 @@ Targeted Beer30 raw-material inventory tests:
 pytest tests/test_raw_material_inventory_queries.py -q
 ```
 
-Current raw-material inventory regression coverage:
-
-```text
-47 passed
-```
-
 Targeted Upserve tests:
 
 ```powershell
 pytest tests/test_upserve_processing.py tests/test_run_upserve_weekly.py
+```
+
+Targeted monthly sales tests:
+
+```powershell
+pytest tests/test_monthly_sales.py tests/test_monthly_sales_discovery.py tests/test_sales_sheet.py tests/test_sales_sheet_mapping.py tests/test_upserve_source.py -q
 ```
 
 ---

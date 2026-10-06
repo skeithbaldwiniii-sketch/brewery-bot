@@ -205,10 +205,18 @@ def parse_upserve_monthly_sales_report(file_path: str | Path) -> dict:
         newline="",
     ) as csv_file:
         # Upserve places two report metadata rows before the CSV header.
-        csv_file.readline()
-        csv_file.readline()
+        # Find the CSV header, supporting exports with or without metadata rows.
+        reader = None
 
-        reader = csv.DictReader(csv_file)
+        for line in csv_file:
+            if {"Type", "Name", "Sold", "Category Name"}.issubset(
+                set(next(csv.reader([line]), []))
+            ):
+                reader = csv.DictReader([line, *csv_file])
+                break
+
+        if reader is None:
+            raise ValueError("Could not find the Upserve CSV header.")
 
         required_columns = {
             "Type",

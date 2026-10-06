@@ -75,3 +75,153 @@ def test_upserve_last_rank():
     assert products[-1]["rank"] == 25
     assert products[-1]["product"] == "Wrexham Red"
     assert products[-1]["sold"] == 6
+def test_download_latest_upserve_monthly_report_with_source(tmp_path):
+    from unittest.mock import patch
+
+    from integrations.upserve import (
+        download_latest_upserve_monthly_report_with_source,
+    )
+
+    emails = [
+        {
+            "id": "monthly-1",
+            "subject": "Vanish Monthly Product Mix CSV - September 2026",
+            "date": "Wed, 01 Oct 2026 09:00:00 -0400",
+        }
+    ]
+
+    attachments = [
+        {
+            "filename": "september.csv",
+            "mime_type": "text/csv",
+            "attachment_id": "attachment-1",
+            "size": 123,
+        }
+    ]
+
+    with (
+        patch(
+            "integrations.upserve.search_emails",
+            return_value=emails,
+        ),
+        patch(
+            "integrations.upserve.get_email_attachments",
+            return_value=attachments,
+        ),
+        patch(
+            "integrations.upserve.download_email_attachment",
+            return_value=b"test,csv\n",
+        ),
+    ):
+        result = download_latest_upserve_monthly_report_with_source(
+            output_dir=tmp_path,
+        )
+
+    assert result["message_id"] == "monthly-1"
+    assert result["email_subject"] == emails[0]["subject"]
+    assert result["filename"] == "september.csv"
+    assert result["file_path"].read_bytes() == b"test,csv\n"
+
+def test_download_latest_upserve_monthly_skips_email_without_csv(tmp_path):
+    from unittest.mock import patch
+
+    from integrations.upserve import (
+        download_latest_upserve_monthly_report_with_source,
+    )
+
+    emails = [
+        {
+            "id": "monthly-newer",
+            "subject": "Vanish Monthly Product Mix CSV - October 2026",
+            "date": "Mon, 02 Nov 2026 09:00:00 -0400",
+        },
+        {
+            "id": "monthly-older",
+            "subject": "Vanish Monthly Product Mix CSV - September 2026",
+            "date": "Thu, 01 Oct 2026 09:00:00 -0400",
+        },
+    ]
+
+    attachments_by_message = {
+        "monthly-newer": [],
+        "monthly-older": [
+            {
+                "filename": "september.csv",
+                "mime_type": "text/csv",
+                "attachment_id": "attachment-1",
+                "size": 123,
+            }
+        ],
+    }
+
+    def get_attachments(message_id):
+        return attachments_by_message[message_id]
+
+    with (
+        patch(
+            "integrations.upserve.search_emails",
+            return_value=emails,
+        ),
+        patch(
+            "integrations.upserve.get_email_attachments",
+            side_effect=get_attachments,
+        ),
+        patch(
+            "integrations.upserve.download_email_attachment",
+            return_value=b"test,csv\n",
+        ),
+    ):
+        result = download_latest_upserve_monthly_report_with_source(
+            output_dir=tmp_path,
+        )
+
+    assert result["message_id"] == "monthly-older"
+    assert result["filename"] == "september.csv"
+    assert result["file_path"].read_bytes() == b"test,csv\n"
+
+def test_download_latest_upserve_monthly_rejects_empty_csv(tmp_path):
+    import pytest
+    from unittest.mock import patch
+
+    from integrations.upserve import (
+        download_latest_upserve_monthly_report_with_source,
+    )
+
+    emails = [
+        {
+            "id": "monthly-1",
+            "subject": "Vanish Monthly Product Mix CSV - September 2026",
+            "date": "Wed, 01 Oct 2026 09:00:00 -0400",
+        }
+    ]
+
+    attachments = [
+        {
+            "filename": "september.csv",
+            "mime_type": "text/csv",
+            "attachment_id": "attachment-1",
+            "size": 0,
+        }
+    ]
+
+    with (
+        patch(
+            "integrations.upserve.search_emails",
+            return_value=emails,
+        ),
+        patch(
+            "integrations.upserve.get_email_attachments",
+            return_value=attachments,
+        ),
+        patch(
+            "integrations.upserve.download_email_attachment",
+            return_value=b"",
+        ),
+    ):
+        with pytest.raises(
+            ValueError,
+            match="Downloaded attachment is empty",
+        ):
+            download_latest_upserve_monthly_report_with_source(
+                output_dir=tmp_path,
+            )
